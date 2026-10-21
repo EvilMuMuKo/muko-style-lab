@@ -1,0 +1,15 @@
+import { chromium } from "@playwright/test";
+const exe = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const b = await chromium.launch({ executablePath: exe, headless: true });
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = [];
+p.on("pageerror", (e) => errs.push(e.message));
+await p.goto("https://evilmumuko.github.io/muko-style-lab/", { waitUntil: "networkidle", timeout: 60000 });
+await p.waitForFunction(() => window.styleLab && window.styleLab.getState().ready, null, { timeout: 30000 });
+const s1 = await p.evaluate(() => window.styleLab.getState());
+await p.evaluate(() => { window.styleLab.setStyle("dopamine"); window.styleLab.setView("all-top"); window.styleLab.setPhase("night"); });
+await p.waitForTimeout(700);
+const s2 = await p.evaluate(() => window.styleLab.getState());
+await p.screenshot({ path: "/tmp/live-check.png" });
+console.log(JSON.stringify({ s1, s2, errs }));
+await b.close();
