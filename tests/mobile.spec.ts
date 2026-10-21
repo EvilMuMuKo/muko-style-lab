@@ -1,5 +1,8 @@
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 
+// CI 的 SwiftShader 软件光栅化比本机硬件 WebGL 慢一个量级，给触摸用例更宽的预算。
+test.describe.configure({ timeout: 120_000 });
+
 async function ready(page: Page) {
   await page.goto("/");
   await page.waitForFunction(() => {
@@ -24,7 +27,7 @@ async function startWalk(page: Page) {
   expect((await state(page)).walking).toBe(true);
   // 进入漫游后的第一帧会把全屋机位夹到可行走边界内，等它落定再记录基准。
   await expect
-    .poll(async () => (await state(page)).camera[0], { timeout: 5000 })
+    .poll(async () => (await state(page)).camera[0], { timeout: 15_000 })
     .toBeLessThanOrEqual(12.56);
 }
 
@@ -91,7 +94,7 @@ test.describe("横屏触摸双摇杆", () => {
       .poll(async () => {
         const now = await state(page);
         return Math.hypot(now.camera[0] - before.camera[0], now.camera[2] - before.camera[2]);
-      }, { timeout: 5000 })
+      }, { timeout: 15_000 })
       .toBeGreaterThan(0.05);
 
     // 拖动行走不会改变视角。
@@ -130,7 +133,7 @@ test.describe("横屏触摸双摇杆", () => {
       .poll(async () => {
         const now = await state(page);
         return now.walkPose.yaw - before.walkPose.yaw < -0.05 && now.walkPose.pitch - before.walkPose.pitch > 0.03;
-      }, { timeout: 5000 })
+      }, { timeout: 15_000 })
       .toBe(true);
 
     const looked = await state(page);
