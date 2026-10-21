@@ -17,7 +17,7 @@
 | 渲染 | Three.js **0.186.0**（锁定）、WebGL2、ACES 色调映射 |
 | 语言/构建 | TypeScript 7、Vite 8（`base=/muko-style-lab/`） |
 | 数据 | `src/plan.json` —— 从 muko-home R7 导出模型里抽取的 8 个房间多边形 + 104 件家具的坐标与尺寸，构建时零处理，直接读 |
-| 测试 | Playwright 1.64，4 个 spec，CI 分 2 分片 |
+| 测试 | Playwright 1.64，12 项用例（桌面 + 触摸），CI 分 2 分片 |
 | 发布 | GitHub Actions → Pages（artifact 部署，不在仓库里堆生成物） |
 
 ## 开发与发布
@@ -27,9 +27,21 @@ npm ci
 npm run dev            # http://localhost:5180/muko-style-lab/
 npm run build          # tsc --noEmit && vite build
 CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm test
+# 线上手机适配验收（资源 hash / gate / 双摇杆 / DPR / console）
+CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  node scripts/verify-mobile-live.mjs https://evilmumuko.github.io/muko-style-lab/
 ```
 
 推 `main` 即自动：构建 → 2 分片测试 → 部署 Pages。
+
+### 看不到更新时
+
+GitHub Pages 对 `index.html` 下发 `cache-control: max-age=600`，这是托管平台的响应头，仓库改不了。
+构建时会给 JS/CSS 引用追加 `?v=<版本>-<commit>`（见 `vite.config.ts` 的 `cache-bust-assets`），
+所以只要拿到新 HTML，就一定会拉新资源；仍停留在旧 HTML 时请**强制刷新**：
+
+- macOS：`Cmd + Shift + R`；Windows / Linux：`Ctrl + F5`
+- 或在地址后加一个一次性参数，例如 `?v=20261021`
 
 ## 界面与操作
 
@@ -39,6 +51,16 @@ CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm
 - **日夜**：日间 / 夜间 / 观影三档，只改这三档，不堆近似预设。
 - **风格**：底部四个胶囊或键盘 `1`–`4`；切换时有一次短暂的白场过渡 + 颜色插值。
 - 深链：`?style=midcentury&view=kitchen-through&phase=night`。
+
+## 手机运行策略
+
+- **竖屏 gate**：`max-width:1024px` 且 `orientation:portrait` 时显示「请横屏观看」，横屏后自动隐藏；旋转会清空摇杆输入。
+- **浮动双摇杆**：仅触摸设备（`pointer:coarse` 或 `maxTouchPoints>0`）。进入漫游后，左半屏按下在落点生成移动杆，右半屏生成视角杆；死区 `0.14`、摇杆半径 `56px`、拇指位移上限 `44px`。
+- 摇杆只在 `walking` 状态生效；触摸画布用 capture 阶段拦截，不触发桌面的 orbit 拖拽；落在控制面板、顶栏、风格面板、底部胶囊或 gate 上时不生成摇杆。
+- `pointerup` / `pointercancel` / `lostpointercapture` / 窗口失焦 / 页面隐藏 / 旋转 / resize 都会复位并隐藏摇杆。
+- **渲染预算**：`renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))`，resize 时重算；桌面鼠标交互不变。
+- 本轮只做 DPR 上限与按需渲染，**没有**移植 muko-home 的 30Hz 帧预算、灯光探针合并或反射捕获降级。
+
 
 ## 四套风格
 
@@ -58,14 +80,18 @@ src/styles.ts         四套风格的调色板、地面配方、日夜档
 src/textures.ts       运行时生成：棋盘格 / 木纹 / 水磨石 / 100mm 小方砖 / 招牌字
 src/build.ts          墙体（带洞）、门窗、家具、灯光；applyStyle() 一次落地
 src/main.ts           相机、漫游、UI、过渡、调试 API
-tests/smoke.spec.ts   4 项冒烟测试
+src/touch.ts          触摸双摇杆、触摸 orbit 拦截、失焦/旋转复位
+tests/smoke.spec.ts   4 项冒烟测试 + 构建版本号断言
+tests/mobile.spec.ts  竖屏 gate、双摇杆、DPR、桌面回归（7 项）
 docs/r1-design.md     R1 的设计范围、复核记录与边界
+docs/mobile-landscape.md  手机适配的映射、参数、缓存穿透与未验证项
 ```
 
 ## 调试 / 自动化接口
 
 ```js
-window.styleLab.getState()            // { version, style, phase, room, view, ready, floors, objects }
+window.styleLab.getState()            // { version, style, phase, room, view, ready, floors, objects,
+                                      //   walking, pixelRatio, touch, walkPose, orbit, camera }
 window.styleLab.setStyle("wabi")      // 不触发白场过渡
 window.styleLab.setPhase("night")
 window.styleLab.setView("kitchen-inside")
@@ -81,6 +107,22 @@ window.styleLab.debugCam([4.6,1.55,4.9], [0.8,1.0,4.4], 56)
 5. 版本号 +1（`package.json` 与 `main.ts` 的 `VERSION` 同步），补 `tests/` 断言（风格 id 列表、`getState()` 字段）。
 6. 写 `docs/rN-design.md`，**结尾必须有「边界」段**：哪些是效果目标、哪些没验证。
 7. 跑 `npm run build` + `npm test`，推 PR；CI 通过后合 main，Pages 自动重建。
+
+## 验证
+
+本地（2026-10-21，Chromium 触摸模拟）：
+
+| 项 | 结果 |
+|---|---|
+| `npm run build`（`tsc --noEmit` + Vite 8） | **PASS** |
+| `npm test`（2 个 spec / 12 项） | **PASS**，12 passed |
+| 竖屏 900×1200 | `#orientation-gate` 可见，截图 `test-results/orientation-gate-900x1200.png` |
+| 横屏 1200×600 触摸 | 左摇杆在落点生成，拖动后相机位移，松手轴归零；右摇杆改变 yaw/pitch |
+| DPR=3 | `renderer.getPixelRatio() === 1.5`，resize 后仍为 1.5 |
+| 桌面 1280×800 | 无摇杆，orbit 拖拽 + 滚轮缩放正常 |
+
+线上资源 hash、gate/摇杆实测与 CI 结果在合并后追加到 PR 评论；真机 iOS/Android **NOT RUN**。
+详细参数与边界见 [`docs/mobile-landscape.md`](docs/mobile-landscape.md)。
 
 ## 边界
 
