@@ -124,6 +124,8 @@ export function buildLab(): Lab {
     cabinet: mat(0xd9cbb6, 0.66),
     cabinetUpper: mat(0xe8e4d8, 0.68),
     counter: mat(0xeee7da, 0.45),
+    joint: mat(0x2a2a26, 0.9),
+    shoe: mat(0x24241f, 0.92),
     tile: mat(0xffffff, 0.4),
     frame: mat(0x16181c, 0.5, 0.2),
     metal: mat(0xc5c8cc, 0.32, 0.85),
@@ -395,6 +397,62 @@ export function buildLab(): Lab {
     }
   };
 
+  // ---------------- R2 构造层：分缝 / 踢脚 / 台面边 ----------------
+  const roomCentre = (room: string) => {
+    const r = (plan.rooms as any[]).find((q) => q.id === room);
+    if (!r) return { cx: 6.4, cz: 4.7 };
+    let sx = 0;
+    let sz = 0;
+    for (const p of r.polygon) {
+      sx += p[0];
+      sz += p[1];
+    }
+    return { cx: sx / r.polygon.length, cz: sz / r.polygon.length };
+  };
+  /** 朝向房间中心的那一面：返回法线方向与"沿面"轴 */
+  const frontOf = (o: any) => {
+    const c = roomCentre(o.room);
+    const dx = c.cx - o.x;
+    const dz = c.cz - o.z;
+    const alongZ = Math.abs(dx) >= Math.abs(dz);
+    return { alongZ, sign: alongZ ? Math.sign(dx || 1) : Math.sign(dz || 1) };
+  };
+  /** 柜体：踢脚内退 + 门板分缝 */
+  const cabinetBody = (o: any, material: THREE.Material) => {
+    const { x, z, y, w, d, h } = o;
+    const toe = y < 0.01 && h > 0.55 ? 0.09 : 0;
+    const bodyY = y + toe;
+    const bodyH = h - toe;
+    box(furniture, material, w, bodyH, d, x, bodyY + bodyH / 2, z);
+    if (toe > 0) box(furniture, M.shoe, Math.max(w - 0.05, 0.05), toe, Math.max(d - 0.06, 0.05), x, y + toe / 2, z, false);
+    const { alongZ, sign } = frontOf(o);
+    const span = alongZ ? d : w;
+    if (span < 0.34 || bodyH < 0.34) return;
+    const face = alongZ ? w / 2 : d / 2;
+    const n = Math.max(1, Math.round(span / 0.6));
+    for (let i = 1; i < n; i++) {
+      const t = -span / 2 + (span * i) / n;
+      const px = alongZ ? x + sign * (face + 0.003) : x + t;
+      const pz = alongZ ? z + t : z + sign * (face + 0.003);
+      box(furniture, M.joint, alongZ ? 0.005 : 0.006, bodyH - 0.02, alongZ ? 0.006 : 0.005, px, bodyY + bodyH / 2, pz, false);
+    }
+  };
+  /** 台面：四边悬出 20mm + 底边滴水线 */
+  const counterSlab = (o: any, material: THREE.Material) => {
+    const { x, z, y, w, d, h } = o;
+    const t = Math.max(h, 0.02);
+    box(furniture, material, w + 0.04, t, d + 0.04, x, y + t / 2, z);
+    const dy = y + 0.006;
+    for (const [sx, sz, bw, bd] of [
+      [0, 1, w + 0.02, 0.006],
+      [0, -1, w + 0.02, 0.006],
+      [1, 0, 0.006, d + 0.02],
+      [-1, 0, 0.006, d + 0.02],
+    ] as [number, number, number, number][]) {
+      box(furniture, M.joint, bw, 0.006, bd, x + sx * (w / 2 + 0.011), dy, z + sz * (d / 2 + 0.011), false);
+    }
+  };
+
   for (const o of plan.objects) {
     const { x, z, y, w, d, h, type } = o as any;
     if (type === "door_leaf") continue;
@@ -402,7 +460,7 @@ export function buildLab(): Lab {
       case "column":
         break;
       case "wall_storage":
-        box(furniture, h > 2 ? M.cabinet : y > 1.2 ? M.cabinetUpper : M.cabinet, w, h, d, x, y + h / 2, z);
+        cabinetBody(o, h > 2 ? M.cabinet : y > 1.2 ? M.cabinetUpper : M.cabinet);
         if (h > 2) box(furniture, M.cabinetUpper, w * 0.9, 0.03, d * 0.96, x, y + h - 0.02, z, false);
         break;
       case "cabinet_frame":
@@ -411,7 +469,7 @@ export function buildLab(): Lab {
           box(furniture, M.wood, w, 1.05, 0.07, x, y + 0.52, z - d / 2 + 0.03);
           break;
         }
-        if (h <= 0.1) box(furniture, M.counter, w, Math.max(h, 0.03), d, x, y + Math.max(h, 0.03) / 2, z);
+        if (h <= 0.1) counterSlab(o, M.counter);
         else box(furniture, M.wood, w, h, d, x, y + h / 2, z);
         break;
       case "mattress":
@@ -486,18 +544,44 @@ export function buildLab(): Lab {
       case "hob":
         box(furniture, M.dark, w, 0.02, d, x, y + 0.01, z, false);
         break;
-      case "hood":
+      case "hood": {
+        // 油烟机 = 机罩 + 到顶烟道（原来只有一块悬空的板）
         box(furniture, M.metal, w, h, d, x, y + h / 2, z, false);
+        const chimneyH = Math.max(H - 0.01 - (y + h), 0.1);
+        box(furniture, M.metal, w * 0.42, chimneyH, d * 0.62, x, y + h + chimneyH / 2, z - d * 0.18, false);
         break;
-      case "sink":
-        box(furniture, M.metal, w, 0.03, d, x, y + 0.01, z, false);
+      }
+      case "sink": {
+        // 大单槽：台面开洞感的盆 + 龙头（龙头装在背向房间中心的一侧）
+        box(furniture, M.metal, w, 0.02, d, x, y + 0.005, z, false);
+        box(furniture, M.appliance, w - 0.07, 0.16, d - 0.07, x, y - 0.075, z, false);
+        const { alongZ, sign } = frontOf(o);
+        const back = -sign;
+        const bx = alongZ ? x + back * (w / 2 - 0.07) : x;
+        const bz = alongZ ? z : z + back * (d / 2 - 0.07);
+        box(furniture, M.metal, 0.05, 0.3, 0.05, bx, y + 0.15, bz, false);
+        box(furniture, M.metal, alongZ ? 0.04 : 0.2, 0.04, alongZ ? 0.2 : 0.04, alongZ ? bx - back * 0.09 : bx + 0.09, y + 0.28, alongZ ? bz + 0.09 : bz, false);
+        box(furniture, M.metal, 0.03, 0.10, 0.03, bx, y + 0.33, bz, false);
         break;
+      }
       case "coffee":
       case "grinder":
-      case "kegerator":
-      case "beer_font":
         box(furniture, M.appliance, w, h, d, x, y + h / 2, z);
         break;
+      case "kegerator": {
+        // 台面下扎啤机：机身 + 不锈钢前门 + 门把手
+        box(furniture, M.appliance, w, h, d, x, y + h / 2, z);
+        box(furniture, M.metal, w - 0.06, h - 0.1, 0.015, x, y + h / 2, z + d / 2 + 0.004, false);
+        box(furniture, M.metal, 0.02, 0.3, 0.03, x + w / 2 - 0.07, y + h * 0.55, z + d / 2 + 0.022, false);
+        break;
+      }
+      case "beer_font": {
+        // 台面酒头塔：立柱 + 出酒口 + 把手
+        box(furniture, M.metal, 0.09, h * 0.72, 0.09, x, y + h * 0.36, z, false);
+        box(furniture, M.metal, 0.17, 0.06, 0.10, x, y + h * 0.76, z, false);
+        box(furniture, M.dark, 0.03, 0.05, 0.15, x, y + h * 0.9, z + 0.035, false);
+        break;
+      }
       case "keg":
       case "co2":
         box(furniture, M.metal, w, h, d, x, y + h / 2, z);
