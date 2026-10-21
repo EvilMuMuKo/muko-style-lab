@@ -1,0 +1,22 @@
+{
+  "name": "muko-style-lab",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "装修风格测试｜同一套厨房 + 水吧，四套大胆风格的材质实验",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/three": "0.186.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4"
+  }
+}
