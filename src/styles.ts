@@ -78,7 +78,7 @@ export const STYLES: StyleSpec[] = [
       grout: "#B9B4A8",
       frame: "#111214",
       metal: "#C9CCD1",
-      soft: "#2B2C30",
+      soft: "#565A61",
       bed: "#F4F2ED",
       rug: "#D2321E",
       art: "#1B4C8C",
@@ -119,7 +119,7 @@ export const STYLES: StyleSpec[] = [
       grout: "#D9D3C6",
       frame: "#14161A",
       metal: "#9AA0A6",
-      soft: "#3B3A36",
+      soft: "#6F665B",
       bed: "#F0E9DC",
       rug: "#C87941",
       art: "#23405E",
@@ -224,7 +224,7 @@ export const STYLES: StyleSpec[] = [
 ];
 
 export const PHASES = {
-  day: { sun: 3.1, ambient: 0.82, interior: 0.55, exposure: 1.02, sky: "#C6D9E6", fog: "#C3D2DA" },
+  day: { sun: 3.1, ambient: 1.05, interior: 0.55, exposure: 1.04, sky: "#C6D9E6", fog: "#C3D2DA" },
   night: { sun: 0.0, ambient: 0.16, interior: 1.0, exposure: 1.12, sky: "#0A0F17", fog: "#0B1017" },
   cinema: { sun: 0.0, ambient: 0.05, interior: 0.12, exposure: 0.9, sky: "#05070C", fog: "#05070C" },
 } as const;

@@ -126,6 +126,10 @@ export function buildLab(): Lab {
     counter: mat(0xeee7da, 0.45),
     joint: mat(0x2a2a26, 0.9),
     shoe: mat(0x24241f, 0.92),
+    duvet: mat(0xf3ece0, 0.92),
+    pillow: mat(0xfbf6ee, 0.88),
+    fabric: mat(0xb9b2a6, 0.96),
+    curtain: mat(0xefe7d8, 0.97),
     tile: mat(0xffffff, 0.4),
     frame: mat(0x16181c, 0.5, 0.2),
     metal: mat(0xc5c8cc, 0.32, 0.85),
@@ -289,6 +293,35 @@ export function buildLab(): Lab {
   win(false, 0, 5.8, 7.2, 0.9, 2.35);
   win(false, 11.65, 0.95, 3.05, 0.6, 2.35);
   win(false, 12.85, 5.05, 8.65, 0.9, 2.35);
+
+  // ---------------- 外凸飘窗（R7：影音客房 2.1×0.75、主卧 2.1×0.75） ----------------
+  const bayWindow = (
+    wallX: number, cz: number, width: number, proj: number,
+    sill: number, head: number, dir: 1 | -1,
+  ) => {
+    const z0 = cz - width / 2;
+    const z1 = cz + width / 2;
+    const ox = wallX + dir * proj;
+    const yc = (sill + head) / 2;
+    const hh = head - sill;
+    // 窗座（悬空台板）+ 顶板
+    box(wallsGroup, M.counter, proj + 0.02, 0.15, width, wallX + (dir * proj) / 2, sill - 0.075, cz);
+    box(wallsGroup, M.ceiling, proj + 0.02, 0.12, width, wallX + (dir * proj) / 2, head + 0.06, cz);
+    // 角柱与中挺
+    for (const z of [z0 + 0.025, cz, z1 - 0.025]) {
+      box(wallsGroup, M.frame, 0.05, hh, 0.05, ox, yc, z, false);
+    }
+    // 正面玻璃
+    glassPanes.push(flat(wallsGroup, M.glass, width - 0.06, hh - 0.06, ox, yc, cz, 0, Math.PI / 2));
+    // 两侧玻璃 + 上下边框
+    for (const z of [z0 + 0.006, z1 - 0.006]) {
+      glassPanes.push(flat(wallsGroup, M.glass, proj - 0.05, hh - 0.06, wallX + (dir * proj) / 2, yc, z, 0, 0));
+      box(wallsGroup, M.frame, proj, 0.04, 0.04, wallX + (dir * proj) / 2, sill, z, false);
+      box(wallsGroup, M.frame, proj, 0.04, 0.04, wallX + (dir * proj) / 2, head, z, false);
+    }
+  };
+  bayWindow(0, 1.5, 2.1, 0.75, 0.6, 2.35, -1);
+  bayWindow(11.65, 2.0, 2.1, 0.75, 0.6, 2.35, 1);
 
   // ---------------- 门（框 + 开启的门扇） ----------------
   const door = (horizontal: boolean, fixed: number, a: number, b: number, swing = 1, angle = 1.15) => {
@@ -477,15 +510,31 @@ export function buildLab(): Lab {
         if (h <= 0.1) counterSlab(o, M.counter);
         else box(furniture, M.wood, w, h, d, x, y + h / 2, z);
         break;
-      case "mattress":
+      case "mattress": {
+        // 床：床垫 + 被子 + 两只枕头
         box(furniture, M.bed, w, h, d, x, y + h / 2, z);
-        box(furniture, M.bed, w, 0.16, 0.42, x, y + 0.28, z - d / 2 + 0.24);
+        box(furniture, M.duvet, w - 0.05, 0.08, d * 0.64, x, y + h + 0.03, z + d * 0.17);
+        box(furniture, M.duvet, w - 0.05, 0.12, 0.06, x, y + h + 0.05, z - d * 0.14);
+        for (const sx of [-1, 1]) {
+          box(furniture, M.pillow, w * 0.37, 0.12, d * 0.16, x + sx * w * 0.21, y + h + 0.05, z - d * 0.31);
+        }
         break;
+      }
       case "modular_sofa":
       case "sofa_bed":
-      case "study_sofa_bed":
-        softTop(o, M.soft);
+      case "study_sofa_bed": {
+        // 沙发：底座 + 坐垫 + 靠背 + 两只扶手 + 两只抱枕
+        const baseH = 0.16;
+        const seatH = 0.22;
+        box(furniture, M.dark, w * 0.98, baseH, d * 0.96, x, y + baseH / 2, z, false);
+        box(furniture, M.soft, w, seatH, d * 0.82, x, y + baseH + seatH / 2, z - d * 0.08);
+        box(furniture, M.soft, w, 0.44, d * 0.2, x, y + baseH + seatH + 0.12, z + d * 0.38);
+        for (const sx of [-1, 1]) {
+          box(furniture, M.soft, w * 0.09, 0.46, d * 0.84, x + sx * (w / 2 - w * 0.045), y + baseH + 0.2, z - d * 0.06);
+          box(furniture, M.pillow, w * 0.2, 0.22, 0.11, x + sx * w * 0.25, y + baseH + seatH + 0.16, z + d * 0.22);
+        }
         break;
+      }
       case "lounge_chair":
         box(furniture, M.wood, w * 0.9, 0.12, d * 0.9, x, y + 0.4, z);
         box(furniture, M.wood, w * 0.9, 0.5, 0.1, x, y + 0.66, z + d * 0.38);
@@ -618,14 +667,19 @@ export function buildLab(): Lab {
       case "study_basin":
         box(furniture, M.ceramic, w, h, d, x, y + h / 2, z);
         break;
-      case "plant":
-        box(furniture, M.ceramic, w * 0.7, h * 0.35, w * 0.7, x, y + h * 0.18, z);
-        {
-          const leaf = new THREE.Mesh(new THREE.SphereGeometry(w * 0.55, 10, 8), M.soft);
-          leaf.position.set(x, y + h * 0.75, z);
+      case "plant": {
+        // 花盆 + 主干 + 三丛叶
+        box(furniture, M.ceramic, w * 0.62, h * 0.32, w * 0.62, x, y + h * 0.16, z);
+        box(furniture, M.wood2, 0.035, h * 0.5, 0.035, x, y + h * 0.45, z, false);
+        for (const [dx, dz, s] of [[0, 0, 0.34], [-0.16, 0.1, 0.24], [0.15, -0.09, 0.22]] as [number, number, number][]) {
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(w * s, 10, 8), M.soft);
+          leaf.position.set(x + dx * w, y + h * (0.78 + s), z + dz * w);
+          leaf.scale.y = 0.8;
+          leaf.castShadow = true;
           furniture.add(leaf);
         }
         break;
+      }
       case "floor_lamp": {
         box(furniture, M.metal, 0.05, h, 0.05, x, y + h / 2, z, false);
         box(furniture, M.metal, Math.max(w * 0.5, 0.16), 0.02, Math.max(d * 0.5, 0.16), x, y + 0.01, z, false);
@@ -785,6 +839,71 @@ export function buildLab(): Lab {
   lantern(1.96, 2.02, 6.15, 0.13);
   lantern(1.845, 2.10, 7.30, 0.14);
 
+  // ---------------- R2 软装：踢脚线 / 窗帘 / 桌面小物 ----------------
+  // 踢脚线：沿每个房间轮廓向内 11mm，100 高 20 厚
+  for (const room of plan.rooms as any[]) {
+    const poly = room.polygon as [number, number][];
+    const cx = poly.reduce((s, q) => s + q[0], 0) / poly.length;
+    const cz = poly.reduce((s, q) => s + q[1], 0) / poly.length;
+    for (let i = 0; i < poly.length; i++) {
+      const [x1, z1] = poly[i];
+      const [x2, z2] = poly[(i + 1) % poly.length];
+      const len = Math.hypot(x2 - x1, z2 - z1);
+      if (len < 0.25) continue;
+      if (Math.abs(x1 - x2) < 0.001) {
+        const sgn = Math.sign(cx - x1) || 1;
+        box(furniture, M.cabinetUpper, 0.02, 0.1, len - 0.02, x1 + sgn * 0.011, 0.05, (z1 + z2) / 2, false);
+      } else {
+        const sgn = Math.sign(cz - z1) || 1;
+        box(furniture, M.cabinetUpper, len - 0.02, 0.1, 0.02, (x1 + x2) / 2, 0.05, z1 + sgn * 0.011, false);
+      }
+    }
+  }
+
+  // 窗帘：每处外窗两端各一片落地帘（顶到 2.36，落地留 30）
+  const curtainPanel = (x: number, z: number, w: number, d: number) => {
+    box(furniture, M.curtain, w, 2.06, d, x, 1.33, z, false);
+    box(furniture, M.frame, w + 0.02, 0.03, d + 0.02, x, 2.37, z, false);
+  };
+  curtainPanel(0.12, 0.62, 0.12, 0.36);
+  curtainPanel(0.12, 2.38, 0.12, 0.36);
+  curtainPanel(11.53, 1.12, 0.12, 0.36);
+  curtainPanel(11.53, 2.88, 0.12, 0.36);
+  curtainPanel(12.73, 5.24, 0.12, 0.38);
+  curtainPanel(12.73, 8.46, 0.12, 0.38);
+
+  // 桌面小物：书、杯、瓶
+  const book = (x: number, y: number, z: number, ry = 0, w = 0.23, d = 0.16) => {
+    const m = box(furniture, M.art, w, 0.035, d, x, y, z, false);
+    m.rotation.y = ry;
+    return m;
+  };
+  book(8.34, 0.79, 3.93, 0.12);
+  book(8.42, 0.825, 3.98, -0.3, 0.2, 0.14);
+  book(9.72, 0.79, 3.95, 0.05);
+  book(0.95, 1.2, 3.1, 0.1);
+  box(furniture, M.ceramic, 0.09, 0.13, 0.09, 3.42, 0.805, 6.9, false);
+  box(furniture, M.ceramic, 0.07, 0.1, 0.07, 3.3, 0.79, 7.12, false);
+  for (let i = 0; i < 3; i++) {
+    box(furniture, M.metal, 0.07, 0.26, 0.07, 0.28 + i * 0.085, 1.08, 7.56, false);
+  }
+
+  // 墙上挂画（破掉大面空墙）
+  const picture = (x: number, y: number, z: number, w: number, h: number, axis: "x" | "z", tint: THREE.Material) => {
+    if (axis === "z") {
+      box(furniture, M.frame, w + 0.05, h + 0.05, 0.03, x, y, z, false);
+      box(furniture, tint, w, h, 0.012, x, y, z + 0.022, false);
+    } else {
+      box(furniture, M.frame, 0.03, h + 0.05, w + 0.05, x, y, z, false);
+      box(furniture, tint, 0.012, h, w, x + 0.022, y, z, false);
+    }
+  };
+  picture(9.55, 1.55, 9.27, 0.92, 0.64, "z", M.art);
+  picture(11.56, 1.62, 8.3, 0.7, 0.9, "x", M.c);
+  picture(10.55, 1.58, 0.09, 0.85, 0.6, "z", M.a);
+  picture(3.35, 1.52, 3.32, 0.72, 0.52, "z", M.b);
+  picture(1.35, 1.5, 3.32, 0.6, 0.45, "z", M.c);
+
   const screens: THREE.Mesh[] = [];
   furniture.traverse((o2) => {
     if ((o2 as THREE.Mesh).material === M.screen) screens.push(o2 as THREE.Mesh);
@@ -834,6 +953,30 @@ export function applyStyle(lab: Lab, spec: StyleSpec, phase: PhaseId) {
   M.a.color.set(p.a);
   M.b.color.set(p.b);
   M.c.color.set(p.c);
+  // 墙面/天花加极轻微噪点贴图：纯色在渲染里像塑料，一层 4% 的噪声就能救回"涂料感"
+  if (!M.wall.map) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const ctx = c.getContext("2d")!;
+    const img = ctx.createImageData(256, 256);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = 238 + Math.round(Math.random() * 16);
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    const mk = (rep: number) => {
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(rep, rep);
+      return t;
+    };
+    M.wall.map = mk(7);
+    M.wall.needsUpdate = true;
+    M.ceiling.map = mk(5);
+    M.ceiling.needsUpdate = true;
+  }
+
   M.counter.roughness = spec.finish.counter;
   M.cabinet.roughness = spec.finish.cabinet;
   M.cabinetUpper.roughness = spec.finish.cabinet;
@@ -888,7 +1031,7 @@ export function applyPhase(lab: Lab, spec: StyleSpec, phase: PhaseId) {
   lab.hemi.intensity = ph.ambient;
   // 夜间环境光压成冷色，给暖光留出对比
   lab.hemi.color.set(phase === "day" ? "#FFFFFF" : "#5C7086");
-  lab.hemi.groundColor.set(phase === "day" ? "#8B8578" : "#3A2E24");
+  lab.hemi.groundColor.set(phase === "day" ? "#C6BDAC" : "#3A2E24");
   const fillLight = lab.lights.fill as THREE.DirectionalLight;
   fillLight.intensity = ph.ambient * 0.5;
   fillLight.color.set(phase === "day" ? "#EFF5FF" : spec.light.night);
@@ -898,7 +1041,7 @@ export function applyPhase(lab: Lab, spec: StyleSpec, phase: PhaseId) {
   // 三层光按档位分配：日间靠天光、夜间靠室内灯、观影档只留重点光
   const K: Record<string, number> =
     phase === "day"
-      ? { room: 0.10, down: 0.22, strip: 0.35, pendant: 0.30 }
+      ? { room: 0.16, down: 0.38, strip: 0.42, pendant: 0.34 }
       : phase === "night"
         ? { room: 0.55, down: 0.70, strip: 1.0, pendant: 1.0 }
         : { room: 0.08, down: 0.14, strip: 0.18, pendant: 0.22 };
