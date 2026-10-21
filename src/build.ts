@@ -591,18 +591,30 @@ export function buildLab(): Lab {
         }
         break;
       }
-      case "modular_sofa":
+      case "modular_sofa": {
+        // 客厅两模块：中间 25mm 缝、各带外侧扶手，可拼可拆（R7 的功能设定）
+        const gap = 0.025;
+        const mw = (w - gap) / 2;
+        for (const s of [-1, 1]) {
+          const off = s * (w / 4 + gap / 4);
+          place(o, M.dark, mw, 0.14, d * 0.94, 0, 0.07, off, false);
+          placeR(o, M.soft, mw * 0.98, 0.22, d * 0.78, d * 0.06, 0.25, off, 0.045);
+          placeR(o, M.soft, mw * 0.98, 0.42, d * 0.2, -d * 0.4, 0.56, off, 0.05);
+          placeR(o, M.soft, mw * 0.1, 0.44, d * 0.82, -d * 0.02, 0.36, off + s * (mw / 2 - mw * 0.06), 0.04);
+          placeR(o, M.pillow, mw * 0.34, 0.2, 0.1, -d * 0.24, 0.56, off + s * mw * 0.2, 0.05);
+        }
+        break;
+      }
       case "sofa_bed":
       case "study_sofa_bed": {
-        // 沙发：底座 + 坐垫 + 靠背 + 两只扶手 + 两只抱枕
-        const baseH = 0.16;
-        const seatH = 0.22;
-        place(o, M.dark, w * 0.98, baseH, d * 0.96, 0, baseH / 2, 0, false);
-        placeR(o, M.soft, w * 0.98, seatH, d * 0.8, d * 0.06, baseH + seatH / 2, 0, 0.045);
-        placeR(o, M.soft, w, 0.44, d * 0.2, -d * 0.4, baseH + seatH + 0.12, 0, 0.05);
+        // 沙发床：靠背半放倒 + 坐垫分两段 + 展平段 + 前腿（体现"可折"而不是一块盒子）
+        place(o, M.dark, w * 0.96, 0.12, d * 0.94, 0, 0.06, 0, false);
+        placeR(o, M.soft, w, 0.2, d * 0.6, d * 0.1, 0.26, 0, 0.04);
+        placeR(o, M.soft, w * 0.97, 0.14, d * 0.28, -d * 0.02, 0.19, 0, 0.04);
+        placeR(o, M.soft, w, 0.34, d * 0.18, -d * 0.34, 0.5, 0, 0.05);
+        placeR(o, M.pillow, w * 0.3, 0.16, 0.1, -d * 0.36, 0.62, 0, 0.05);
         for (const s of [-1, 1]) {
-          placeR(o, M.soft, w * 0.09, 0.46, d * 0.86, -d * 0.02, baseH + 0.2, s * (w / 2 - w * 0.045), 0.04);
-          placeR(o, M.pillow, w * 0.2, 0.22, 0.11, -d * 0.2, baseH + seatH + 0.16, s * w * 0.25, 0.05);
+          place(o, M.metal, 0.04, 0.13, 0.04, d * 0.4, 0.065, s * (w / 2 - 0.07), false);
         }
         break;
       }
@@ -614,7 +626,15 @@ export function buildLab(): Lab {
       case "office_chair":
         placeR(o, M.soft, w * 0.9, 0.11, d * 0.9, 0, 0.46, 0, 0.04);
         placeR(o, M.soft, w * 0.85, 0.5, 0.08, -d * 0.36, 0.76, 0, 0.035);
-        place(o, M.metal, 0.06, 0.42, 0.06, 0, 0.22, 0, false);
+        place(o, M.metal, 0.055, 0.34, 0.055, 0, 0.24, 0, false);
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2;
+          const arm = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.028, 0.3), M.metal);
+          arm.position.set(x + Math.sin(a) * 0.15, y + 0.05, z + Math.cos(a) * 0.15);
+          arm.rotation.y = a;
+          arm.castShadow = true;
+          furniture.add(arm);
+        }
         break;
       case "counter_stool":
       case "folding_chair":
