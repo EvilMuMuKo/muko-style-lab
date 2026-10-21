@@ -161,6 +161,68 @@ export function patternedCanvas(pattern: Pattern, base: string, second: string, 
 }
 
 /** 招牌：一次绘制，换色时重绘 */
+/** 通用灰度细节层：白底 + 极淡纹理，乘在材质颜色上，只加"表面感"不改色 */
+function detailLayer(draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+  const [c, ctx] = canvas();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  draw(ctx);
+  noise(ctx, 900, 0.02);
+  return c;
+}
+
+/** 柜门/家具木纹：竖向细纹 + 轻微年轮带 */
+export function woodPanel(): HTMLCanvasElement {
+  return detailLayer((ctx) => {
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * SIZE;
+      ctx.strokeStyle = `rgba(0,0,0,${0.03 + Math.random() * 0.05})`;
+      ctx.lineWidth = 0.6 + Math.random() * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.bezierCurveTo(x + 6, SIZE * 0.35, x - 6, SIZE * 0.7, x + 2, SIZE);
+      ctx.stroke();
+    }
+    for (let b = 0; b < 5; b++) {
+      ctx.fillStyle = `rgba(0,0,0,${0.02 + Math.random() * 0.02})`;
+      ctx.fillRect(0, Math.random() * SIZE, SIZE, 6 + Math.random() * 18);
+    }
+  });
+}
+
+/** 布料：横竖交错织纹 + 绒面噪声 */
+export function fabricWeave(): HTMLCanvasElement {
+  return detailLayer((ctx) => {
+    ctx.strokeStyle = "rgba(0,0,0,0.045)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < SIZE; y += 4) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(SIZE, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(0,0,0,0.035)";
+    for (let x = 0; x < SIZE; x += 4) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, SIZE);
+      ctx.stroke();
+    }
+  });
+}
+
+/** 台面石材：细颗粒 */
+export function stoneTop(): HTMLCanvasElement {
+  return detailLayer((ctx) => {
+    for (let i = 0; i < 2600; i++) {
+      const a = Math.random() * 0.09;
+      ctx.fillStyle = `rgba(0,0,0,${a})`;
+      const s = Math.random() < 0.85 ? 1 : 2;
+      ctx.fillRect(Math.random() * SIZE, Math.random() * SIZE, s, s);
+    }
+  });
+}
+
 export function plaqueTexture(text: string, bg: string, ink: string): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = 1024;
