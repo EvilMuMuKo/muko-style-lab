@@ -491,6 +491,32 @@ export function buildLab(): Lab {
     }
   };
 
+  /**
+   * 家具朝向：face = 人使用它时面朝的方向（n=-z, s=+z, w=-x, e=+x），缺省 s。
+   * 返回 (fx,fz) 朝向向量与 (px,pz) 侧向向量，供沙发/椅子/床这些"有正面"的家具定位。
+   */
+  const faceOf = (o: any) => {
+    const f = String(o.face ?? "s");
+    if (f === "n") return { fx: 0, fz: -1, px: 1, pz: 0 };
+    if (f === "w") return { fx: -1, fz: 0, px: 0, pz: 1 };
+    if (f === "e") return { fx: 1, fz: 0, px: 0, pz: -1 };
+    return { fx: 0, fz: 1, px: 1, pz: 0 };
+  };
+  /** 按朝向摆一块：offF 沿朝向，offP 沿侧向，sx/sz 为局部尺寸（垂直于朝向 / 沿朝向） */
+  const place = (
+    o: any, material: THREE.Material,
+    sx: number, sy: number, sz: number,
+    offF: number, offY: number, offP = 0, shadows = true,
+  ) => {
+    const { fx, fz, px, pz } = faceOf(o);
+    const w = Math.abs(fx) > 0.5 ? sz : sx;
+    const dep = Math.abs(fx) > 0.5 ? sx : sz;
+    return box(
+      furniture, material, w, sy, dep,
+      o.x + fx * offF + px * offP, o.y + offY, o.z + fz * offF + pz * offP, shadows,
+    );
+  };
+
   for (const o of plan.objects) {
     const { x, z, y, w, d, h, type } = o as any;
     if (type === "door_leaf") continue;
@@ -511,12 +537,12 @@ export function buildLab(): Lab {
         else box(furniture, M.wood, w, h, d, x, y + h / 2, z);
         break;
       case "mattress": {
-        // 床：床垫 + 被子 + 两只枕头
-        box(furniture, M.bed, w, h, d, x, y + h / 2, z);
-        box(furniture, M.duvet, w - 0.05, 0.08, d * 0.64, x, y + h + 0.03, z + d * 0.17);
-        box(furniture, M.duvet, w - 0.05, 0.12, 0.06, x, y + h + 0.05, z - d * 0.14);
-        for (const sx of [-1, 1]) {
-          box(furniture, M.pillow, w * 0.37, 0.12, d * 0.16, x + sx * w * 0.21, y + h + 0.05, z - d * 0.31);
+        // 床：床头在背向 face 的一端，被子朝脚
+        place(o, M.bed, w, h, d, 0, h / 2);
+        place(o, M.duvet, w - 0.05, 0.08, d * 0.64, d * 0.17, h + 0.03);
+        place(o, M.duvet, w - 0.05, 0.12, 0.06, d * 0.14, h + 0.05);
+        for (const s of [-1, 1]) {
+          place(o, M.pillow, w * 0.37, 0.12, d * 0.16, -d * 0.31, h + 0.05, s * w * 0.21);
         }
         break;
       }
@@ -526,29 +552,29 @@ export function buildLab(): Lab {
         // 沙发：底座 + 坐垫 + 靠背 + 两只扶手 + 两只抱枕
         const baseH = 0.16;
         const seatH = 0.22;
-        box(furniture, M.dark, w * 0.98, baseH, d * 0.96, x, y + baseH / 2, z, false);
-        box(furniture, M.soft, w, seatH, d * 0.82, x, y + baseH + seatH / 2, z - d * 0.08);
-        box(furniture, M.soft, w, 0.44, d * 0.2, x, y + baseH + seatH + 0.12, z + d * 0.38);
-        for (const sx of [-1, 1]) {
-          box(furniture, M.soft, w * 0.09, 0.46, d * 0.84, x + sx * (w / 2 - w * 0.045), y + baseH + 0.2, z - d * 0.06);
-          box(furniture, M.pillow, w * 0.2, 0.22, 0.11, x + sx * w * 0.25, y + baseH + seatH + 0.16, z + d * 0.22);
+        place(o, M.dark, w * 0.98, baseH, d * 0.96, 0, baseH / 2, 0, false);
+        place(o, M.soft, w * 0.98, seatH, d * 0.8, d * 0.06, baseH + seatH / 2);
+        place(o, M.soft, w, 0.44, d * 0.2, -d * 0.4, baseH + seatH + 0.12);
+        for (const s of [-1, 1]) {
+          place(o, M.soft, w * 0.09, 0.46, d * 0.86, -d * 0.02, baseH + 0.2, s * (w / 2 - w * 0.045));
+          place(o, M.pillow, w * 0.2, 0.22, 0.11, -d * 0.2, baseH + seatH + 0.16, s * w * 0.25);
         }
         break;
       }
       case "lounge_chair":
-        box(furniture, M.wood, w * 0.9, 0.12, d * 0.9, x, y + 0.4, z);
-        box(furniture, M.wood, w * 0.9, 0.5, 0.1, x, y + 0.66, z + d * 0.38);
-        box(furniture, M.metal, w * 0.8, 0.36, 0.06, x, y + 0.2, z - d * 0.32, false);
+        place(o, M.wood, w * 0.9, 0.12, d * 0.86, 0, 0.4);
+        place(o, M.wood, w * 0.9, 0.5, 0.1, -d * 0.38, 0.66);
+        place(o, M.metal, w * 0.8, 0.36, 0.06, d * 0.32, 0.2, 0, false);
         break;
       case "office_chair":
-        box(furniture, M.soft, w * 0.9, 0.1, d * 0.9, x, y + 0.46, z);
-        box(furniture, M.soft, w * 0.85, 0.5, 0.08, x, y + 0.76, z + d * 0.36);
-        box(furniture, M.metal, 0.06, 0.42, 0.06, x, y + 0.22, z, false);
+        place(o, M.soft, w * 0.9, 0.1, d * 0.9, 0, 0.46);
+        place(o, M.soft, w * 0.85, 0.5, 0.08, -d * 0.36, 0.76);
+        place(o, M.metal, 0.06, 0.42, 0.06, 0, 0.22, 0, false);
         break;
       case "counter_stool":
       case "folding_chair":
-        box(furniture, M.wood, w * 0.8, 0.05, d * 0.8, x, y + 0.6, z);
-        box(furniture, M.wood, w * 0.72, 0.4, 0.06, x, y + 0.86, z + d * 0.34);
+        place(o, M.wood, w * 0.8, 0.05, d * 0.8, 0, 0.6);
+        place(o, M.wood, w * 0.72, 0.4, 0.06, -d * 0.34, 0.86);
         for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
           box(furniture, M.metal, 0.03, 0.58, 0.03, x + (sx * w) / 3, y + 0.29, z + (sz * d) / 3, false);
         }
