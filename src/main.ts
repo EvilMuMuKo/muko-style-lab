@@ -26,6 +26,7 @@ const VIEWS: ViewDef[] = [
   { room: "kitchen", id: "kitchen-inside", label: "厨房内", pos: [3.62, 1.62, 5.42], target: [0.85, 0.98, 3.95], fov: 60 },
   { room: "bar", id: "bar-from-kitchen", label: "从出品窗看水吧", pos: [2.5, 1.58, 6.95], target: [2.1, 1.0, 5.86], fov: 60 },
   { room: "bar", id: "bar-from-living", label: "从走廊看水吧", pos: [4.55, 1.58, 7.45], target: [1.5, 1.02, 7.95], fov: 62 },
+  { room: "bar", id: "bar-a-card", label: "吧台正面·还原02/05", pos: [2.05, 1.58, 7.85], target: [1.97, 1.2, 5.9], fov: 46 },
   { room: "master", id: "master-door", label: "从门口", pos: [7.18, 1.62, 3.34], target: [10.5, 0.95, 1.0], fov: 58 },
   { room: "master", id: "master-bed", label: "从工位看床", pos: [11.35, 1.62, 3.95], target: [8.3, 0.9, 0.85], fov: 58 },
   { room: "guest", id: "guest-door", label: "从门口", pos: [4.32, 1.62, 3.18], target: [1.15, 1.0, 1.15], fov: 60 },

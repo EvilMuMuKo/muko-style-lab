@@ -407,8 +407,16 @@ export function buildLab(): Lab {
   box(folded, M.frame, leaf, 0.06, 0.05, -leaf / 2, -(head - sill) / 2 + 0.02, 0, false);
   box(folded, M.frame, 0.05, head - sill, 0.05, -leaf + 0.02, 0, 0, false);
   glassPanes.push(flat(folded, M.glass, leaf - 0.08, head - sill - 0.1, -leaf / 2, 0, 0, 0, 0));
+  // 窗头线性风口（参考 02/05 的横向格栅）
+  for (let i = 0; i < 5; i++) {
+    box(wallsGroup, M.frame, px1 - px0 - 0.3, 0.012, 0.03, (px0 + px1) / 2, head + 0.14 + i * 0.035, pz + 0.09, false);
+  }
+  // 窗内卷帘（收起状态一条）
+  box(wallsGroup, M.cabinetUpper, px1 - px0 - 0.1, 0.16, 0.05, (px0 + px1) / 2, head - 0.02, pz - 0.06, false);
+
   // 木台边（水吧侧）
-  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.35, (px0 + px1) / 2, 0.935, pz + 0.195);
+  // 出水吧侧木台板：厚 50、比砖面凸 25（参考 02/05）
+  box(wallsGroup, M.wood, px1 - px0, 0.05, 0.35, (px0 + px1) / 2, 0.925, pz + 0.275);
 
   // ---------------- 墙面砖（厨房 + 卫浴） ----------------
   const wallTiles: Lab["wallTiles"] = [];
@@ -862,7 +870,31 @@ export function buildLab(): Lab {
     lights["pendant:" + z.toFixed(2)] = l;
     return m;
   };
-  lantern(1.96, 2.02, 6.15, 0.13);
+  // 摇臂吊灯（参考 02/05）：墙面底座 + 横臂 + 锥形灯罩
+  const swingLamp = (bx: number, by: number, bz: number, tx: number, tz: number) => {
+    box(accents, M.frame, 0.03, 0.14, 0.14, bx, by, bz, false);
+    const len = Math.hypot(tx - bx, tz - bz);
+    const ang = Math.atan2(tz - bz, tx - bx);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(len, 0.03, 0.03), M.metal);
+    arm.position.set((bx + tx) / 2, by, (bz + tz) / 2);
+    arm.rotation.y = -ang;
+    accents.add(arm);
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.21, 0.24, 20, 1, true), M.cabinetUpper);
+    shade.position.set(tx, by - 0.24, tz);
+    shade.rotation.x = Math.PI;
+    accents.add(shade);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff0d2 }));
+    b.position.set(tx, by - 0.3, tz);
+    accents.add(b);
+    const pl = new THREE.PointLight(0xffd7a8, 4.5, 3.6, 2);
+    pl.position.set(tx, by - 0.32, tz);
+    pl.userData.base = 4.5;
+    pl.userData.kind = "pendant";
+    root.add(pl);
+    lights["pendant:swing"] = pl;
+  };
+  swingLamp(4.86, 2.32, 6.62, 2.55, 6.15);
+
   lantern(1.845, 2.10, 7.30, 0.14);
 
   // ---------------- R2 软装：踢脚线 / 窗帘 / 桌面小物 ----------------
@@ -929,6 +961,21 @@ export function buildLab(): Lab {
   picture(10.55, 1.58, 0.09, 0.85, 0.6, "z", M.a);
   picture(3.35, 1.52, 3.32, 0.72, 0.52, "z", M.b);
   picture(1.35, 1.5, 3.32, 0.6, 0.45, "z", M.c);
+
+  // 窗内酒瓶一排（参考 02/05）
+  for (let i = 0; i < 7; i++) {
+    const bx = 0.98 + i * 0.16;
+    const hh = 0.22 + (i % 3) * 0.035;
+    box(accents, i % 2 === 0 ? M.b : [M.c, M.a, M.art][i % 3], 0.042, hh * 0.8, 0.042, bx, 0.96 + hh * 0.4, 5.62, false);
+  }
+  // 吧台上的蓝绣球
+  for (const [dx, dy, dz, s] of [[0, 0, 0, 0.11], [-0.1, 0.02, 0.05, 0.085], [0.09, -0.01, -0.04, 0.08], [0.02, 0.09, 0.03, 0.075]] as [number, number, number, number][]) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), M.b);
+    m.position.set(0.62 + dx, 1.22 + dy, 6.62 + dz);
+    m.castShadow = true;
+    accents.add(m);
+  }
+  box(accents, M.ceramic, 0.16, 0.18, 0.16, 0.62, 1.02, 6.62, false);
 
   const screens: THREE.Mesh[] = [];
   furniture.traverse((o2) => {
