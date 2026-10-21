@@ -239,8 +239,10 @@ export function buildLab(): Lab {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     mesh.castShadow = true;
+    // 只让它在阴影通道里双面剔除，正常渲染仍是单面：
+    // 否则全屋俯视/透视会看到一块白色天花板把室内盖住。
     const cm = mesh.material as THREE.Material;
-    cm.side = THREE.DoubleSide;
+    cm.shadowSide = THREE.DoubleSide;
     cm.needsUpdate = true;
   });
   root.add(ceiling);
@@ -289,7 +291,7 @@ export function buildLab(): Lab {
   win(false, 12.85, 5.05, 8.65, 0.9, 2.35);
 
   // ---------------- 门（框 + 开启的门扇） ----------------
-  const door = (horizontal: boolean, fixed: number, a: number, b: number, swing = 1) => {
+  const door = (horizontal: boolean, fixed: number, a: number, b: number, swing = 1, angle = 1.15) => {
     const w = b - a;
     const hh = 2.08;
     const mid = (a + b) / 2;
@@ -300,7 +302,7 @@ export function buildLab(): Lab {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, hh - 0.03, 0.04), M.cabinetUpper);
       leaf.geometry.translate((w - 0.04) / 2, 0, 0);
       leaf.position.set(a, (hh - 0.03) / 2, fixed);
-      leaf.rotation.y = swing * 1.15;
+      leaf.rotation.y = swing * angle;
       leaf.castShadow = true;
       wallsGroup.add(leaf);
     } else {
@@ -310,13 +312,14 @@ export function buildLab(): Lab {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.04, hh - 0.03, w - 0.04), M.cabinetUpper);
       leaf.geometry.translate(0, 0, (w - 0.04) / 2);
       leaf.position.set(fixed, (hh - 0.03) / 2, a);
-      leaf.rotation.y = swing * 1.15;
+      leaf.rotation.y = swing * angle;
       leaf.castShadow = true;
       wallsGroup.add(leaf);
     }
   };
   door(true, 3.4, 3.92, 4.78, -1);
-  door(true, 2.0, 5.5, 6.3, 1);
+  // 卫生间只有 2.1×2.0，门开 66° 会扫掉半个房间，改成只开 10°
+  door(true, 2.0, 5.5, 6.3, 1, 0.18);
   door(false, 6.9, 3.21, 4.09, 1);
   door(true, 8.45, 5.225, 6.325, -1);
 
@@ -372,7 +375,7 @@ export function buildLab(): Lab {
   box(folded, M.frame, 0.05, head - sill, 0.05, -leaf + 0.02, 0, 0, false);
   glassPanes.push(flat(folded, M.glass, leaf - 0.08, head - sill - 0.1, -leaf / 2, 0, 0, 0, 0));
   // 木台边（水吧侧）
-  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.26, (px0 + px1) / 2, 0.935, pz + 0.13);
+  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.35, (px0 + px1) / 2, 0.935, pz + 0.175);
 
   // ---------------- 墙面砖（厨房 + 卫浴） ----------------
   const wallTiles: Lab["wallTiles"] = [];
@@ -414,8 +417,9 @@ export function buildLab(): Lab {
     const c = roomCentre(o.room);
     const dx = c.cx - o.x;
     const dz = c.cz - o.z;
-    const alongZ = Math.abs(dx) >= Math.abs(dz);
-    return { alongZ, sign: alongZ ? Math.sign(dx || 1) : Math.sign(dz || 1) };
+    // alongZ = 正面法线朝 z 轴（靠南北墙的柜子），否则朝 x 轴（靠东西墙）
+    const alongZ = Math.abs(dz) >= Math.abs(dx);
+    return { alongZ, sign: alongZ ? Math.sign(dz || 1) : Math.sign(dx || 1) };
   };
   /** 柜体：踢脚内退 + 门板分缝 */
   const cabinetBody = (o: any, material: THREE.Material) => {
@@ -621,13 +625,17 @@ export function buildLab(): Lab {
           furniture.add(leaf);
         }
         break;
-      case "floor_lamp":
+      case "floor_lamp": {
         box(furniture, M.metal, 0.05, h, 0.05, x, y + h / 2, z, false);
-        {
-          const shade = new THREE.Mesh(new THREE.ConeGeometry(w * 0.45, h * 0.16, 16, 1, true), M.cabinetUpper);
-          shade.position.set(x, y + h - 0.06, z);
-          furniture.add(shade);
-        }
+        box(furniture, M.metal, Math.max(w * 0.5, 0.16), 0.02, Math.max(d * 0.5, 0.16), x, y + 0.01, z, false);
+        const shade = new THREE.Mesh(new THREE.ConeGeometry(w * 0.42, h * 0.14, 16, 1, true), M.cabinetUpper);
+        shade.position.set(x, y + h - h * 0.09, z);
+        furniture.add(shade);
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff0d4 }));
+        bulb.position.set(x, y + h - h * 0.14, z);
+        furniture.add(bulb);
+        break;
+      }
         break;
       case "pegboard":
         box(furniture, M.wood2, w, h, d, x, y + h / 2, z, false);
@@ -772,8 +780,8 @@ export function buildLab(): Lab {
     lights["pendant:" + z.toFixed(2)] = l;
     return m;
   };
-  lantern(1.96, 2.02, 6.15, 0.17);
-  lantern(1.845, 2.06, 7.32, 0.19);
+  lantern(1.96, 2.02, 6.15, 0.13);
+  lantern(1.845, 2.10, 7.30, 0.14);
 
   const screens: THREE.Mesh[] = [];
   furniture.traverse((o2) => {
