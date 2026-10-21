@@ -185,7 +185,7 @@ export function buildLab(): Lab {
   seg(6.9, 0, 6.9, 4.4);
   wallRun(wallsGroup, M.wall, true, 4.4, 6.9, 11.65, []);
   seg(6.9, 4.4, 11.65, 4.4);
-  wallRun(wallsGroup, M.wall, true, 5.85, 0, 3.92, [{ a: 0.09, b: 2.71, y0: 0.95, y1: 2.35 }]);
+  wallRun(wallsGroup, M.wall, true, 5.85, 0, 3.92, [{ a: 0.09, b: 3.83, y0: 0.95, y1: 2.35 }]);
   seg(0, 5.85, 3.92, 5.85);
   wallRun(wallsGroup, M.wall, false, 7.0, 4.4, 5.4, []);
   seg(7.0, 4.4, 7.0, 5.4);
@@ -337,7 +337,7 @@ export function buildLab(): Lab {
 
   // ---------------- 出品窗（厨房 ↔ 水吧） ----------------
   const px0 = 0.09;
-  const px1 = 2.71;
+  const px1 = 3.83;
   const sill = 0.95;
   const head = 2.35;
   const leaf = 0.7;
@@ -370,7 +370,7 @@ export function buildLab(): Lab {
   };
   addTile(3.9, 2.1, 1.96, 1.05, 3.4 + 0.075, 0);
   addTile(2.45, 2.1, 0.075, 1.05, 4.625, Math.PI / 2);
-  addTile(2.62, 0.95, 1.4, 0.475, 5.85 + 0.075, 0);
+  addTile(3.74, 0.95, 1.96, 0.475, 5.85 + 0.075, 0);
   addTile(2.1, 2.1, 5.85, 1.05, 2.0 - 0.075, Math.PI);
   addTile(2.1, 2.1, 4.8 + 0.075, 1.05, 1.0, -Math.PI / 2);
 
