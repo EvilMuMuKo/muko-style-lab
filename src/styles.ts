@@ -224,9 +224,9 @@ export const STYLES: StyleSpec[] = [
 ];
 
 export const PHASES = {
-  day: { sun: 2.9, ambient: 1.35, interior: 0.55, exposure: 1.18, sky: "#CFE0EA", fog: "#C9D6DC" },
-  night: { sun: 0.14, ambient: 0.22, interior: 1.0, exposure: 1.04, sky: "#0B1018", fog: "#0C1118" },
-  cinema: { sun: 0.0, ambient: 0.05, interior: 0.12, exposure: 0.92, sky: "#05070C", fog: "#05070C" },
+  day: { sun: 3.1, ambient: 0.82, interior: 0.55, exposure: 1.02, sky: "#C6D9E6", fog: "#C3D2DA" },
+  night: { sun: 0.0, ambient: 0.16, interior: 1.0, exposure: 1.12, sky: "#0A0F17", fog: "#0B1017" },
+  cinema: { sun: 0.0, ambient: 0.05, interior: 0.12, exposure: 0.9, sky: "#05070C", fog: "#05070C" },
 } as const;
 
 export type PhaseId = keyof typeof PHASES;

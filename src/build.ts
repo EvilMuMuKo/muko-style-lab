@@ -23,6 +23,8 @@ export interface Lab {
   sun: THREE.DirectionalLight;
   hemi: THREE.HemisphereLight;
   bulb: THREE.Mesh;
+  /** 灯具自发光材质（灯带 / 灯罩），按档位调亮度 */
+  lampMats: Mat[];
   floors: { mesh: THREE.Mesh; room: string; w: number; d: number }[];
   wallTiles: { mesh: THREE.Mesh; w: number; h: number }[];
   sign: { mat: THREE.MeshBasicMaterial };
@@ -231,6 +233,14 @@ export function buildLab(): Lab {
   // ---------------- 天花 ----------------
   flat(ceiling, M.ceiling, 11.65, 4.4, 5.825, H - 0.001, 2.2, Math.PI / 2, 0);
   flat(ceiling, M.ceiling, 12.85, 4.95, 6.425, H - 0.001, 6.875, Math.PI / 2, 0);
+  ceiling.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.castShadow = true;
+    const cm = mesh.material as THREE.Material;
+    cm.side = THREE.DoubleSide;
+    cm.needsUpdate = true;
+  });
   root.add(ceiling);
 
   // ---------------- 窗 ----------------
@@ -563,10 +573,11 @@ export function buildLab(): Lab {
   const signMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   flat(accents, signMat, 0.9, 0.2, 2.45, 2.52, 5.85 + 0.09, 0, 0);
 
-  // 墙体只接收阴影、不投射：避免贴墙掠射角的自阴影噪点
+  // R2：墙与顶参与投影，白天只有从门窗洞进来的光能落地。
+  // normalBias 已经调过（见 sun.shadow.normalBias），贴墙掠射的噪点可接受。
   wallsGroup.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh) mesh.castShadow = false;
+    if (mesh.isMesh) mesh.castShadow = true;
   });
 
   // ---------------- 灯光 ----------------
@@ -574,7 +585,7 @@ export function buildLab(): Lab {
   const sun = new THREE.DirectionalLight(0xfff0dc, 2.4);
   sun.position.set(-6, 7.5, 12);
   sun.target.position.set(6, 0, 4.6);
-  sun.castShadow = false;
+  sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -7.5;
   sun.shadow.camera.right = 7.5;
@@ -593,6 +604,8 @@ export function buildLab(): Lab {
   const point = (name: string, x: number, y: number, z: number, intensity: number, dist: number) => {
     const l = new THREE.PointLight(0xffe3bd, intensity, dist, 2);
     l.position.set(x, y, z);
+    l.userData.base = intensity;
+    l.userData.kind = "room";
     lights[name] = l;
     return l;
   };
@@ -609,6 +622,75 @@ export function buildLab(): Lab {
   bulb.position.set(1.44, 1.5, 6.3);
   root.add(bulb);
 
+  // ---------------- R2 灯具：顶面筒灯 / 吊柜灯带 / 装饰吊灯 ----------------
+  const lampMats: Mat[] = [];
+  const glowMat = (color: number, emissive: number, power: number) => {
+    const m = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: power, roughness: 0.55, metalness: 0 });
+    lampMats.push(m);
+    return m;
+  };
+  const stripMat = glowMat(0xffe9cc, 0xffb469, 1.4);
+  const shadeMat = glowMat(0xfff1dc, 0xffbe7d, 1.2);
+
+  const spot = (
+    name: string, kind: string, x: number, y: number, z: number,
+    tx: number, ty: number, tz: number, intensity: number,
+    angle = 0.9, penumbra = 0.7, dist = 6.5,
+  ) => {
+    const l = new THREE.SpotLight(0xffe3c4, intensity, dist, angle, penumbra, 2);
+    l.position.set(x, y, z);
+    l.target.position.set(tx, ty, tz);
+    l.userData.base = intensity;
+    l.userData.kind = kind;
+    root.add(l);
+    root.add(l.target);
+    lights[name] = l;
+    return l;
+  };
+
+  // 顶面筒灯：每空间一处，略向内倾，避免顶端过曝
+  spot("down:kitchen", "down", 1.95, 2.62, 4.6, 1.6, 0, 4.35, 7, 0.95, 0.75, 6);
+  spot("down:bar", "down", 2.3, 2.62, 7.2, 1.9, 0, 7.35, 7, 0.95, 0.75, 6);
+  spot("down:living", "down", 9.3, 2.62, 6.9, 9.2, 0, 6.9, 9, 1.0, 0.75, 7);
+  spot("down:master", "down", 9.3, 2.62, 2.2, 9.3, 0, 2.2, 6, 0.95, 0.75, 6);
+  spot("down:guest", "down", 2.2, 2.62, 1.7, 2.2, 0, 1.7, 6, 0.95, 0.75, 6);
+  spot("down:bath", "down", 5.85, 2.62, 1.0, 5.85, 0, 1.0, 4, 0.95, 0.75, 4);
+  spot("down:hall", "down", 5.8, 2.62, 6.4, 5.8, 0, 6.4, 5, 0.95, 0.75, 5);
+  spot("down:balcony", "down", 12.25, 2.5, 6.8, 12.25, 0, 6.8, 3, 0.9, 0.8, 4);
+
+  // 吊柜下灯带：两条亚光发光条 + 两盏洗台面的窄角光
+  const stripBar = (x1: number, x2: number, y: number, z: number, depth = 0.03) => {
+    const m = box(accents, stripMat, Math.abs(x2 - x1), 0.012, depth, (x1 + x2) / 2, y, z, false);
+    m.castShadow = false;
+    return m;
+  };
+  stripBar(0.17, 0.79, 1.575, 3.83);
+  stripBar(1.72, 2.84, 1.575, 3.83);
+  stripBar(0.20, 3.49, 1.545, 7.62, 0.028);
+  spot("strip:kitchen-a", "strip", 0.48, 1.55, 3.80, 0.48, 0.94, 3.96, 5.2, 0.95, 0.92, 1.8);
+  spot("strip:kitchen-b", "strip", 2.28, 1.55, 3.80, 2.28, 0.94, 3.96, 5.2, 0.95, 0.92, 1.8);
+  spot("strip:bar", "strip", 1.85, 1.52, 7.68, 1.85, 0.94, 7.86, 6.0, 1.05, 0.92, 2.1);
+
+  // 装饰吊灯：出品窗外侧 + 水吧上方（纸灯笼）
+  const lantern = (x: number, y: number, z: number, r: number) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), shadeMat);
+    m.position.set(x, y, z);
+    m.castShadow = false;
+    root.add(m);
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, H - 0.02 - y - r, 6), M.frame);
+    cord.position.set(x, (H + y + r) / 2 - 0.01, z);
+    root.add(cord);
+    const l = new THREE.PointLight(0xffb877, 7, 4.8, 2);
+    l.position.set(x, y - r * 0.35, z);
+    l.userData.base = 7;
+    l.userData.kind = "pendant";
+    root.add(l);
+    lights["pendant:" + z.toFixed(2)] = l;
+    return m;
+  };
+  lantern(1.96, 2.02, 6.15, 0.17);
+  lantern(1.845, 2.06, 7.32, 0.19);
+
   const screens: THREE.Mesh[] = [];
   furniture.traverse((o2) => {
     if ((o2 as THREE.Mesh).material === M.screen) screens.push(o2 as THREE.Mesh);
@@ -622,6 +704,7 @@ export function buildLab(): Lab {
     sun,
     hemi,
     bulb,
+    lampMats,
     floors,
     wallTiles,
     sign: { mat: signMat },
@@ -709,17 +792,37 @@ export function applyStyle(lab: Lab, spec: StyleSpec, phase: PhaseId) {
 export function applyPhase(lab: Lab, spec: StyleSpec, phase: PhaseId) {
   const ph = PHASES[phase];
   lab.hemi.intensity = ph.ambient;
+  // 夜间环境光压成冷色，给暖光留出对比
+  lab.hemi.color.set(phase === "day" ? "#FFFFFF" : "#5C7086");
+  lab.hemi.groundColor.set(phase === "day" ? "#8B8578" : "#3A2E24");
   const fillLight = lab.lights.fill as THREE.DirectionalLight;
-  fillLight.intensity = ph.ambient * 0.62;
-  fillLight.color.set(phase === "day" ? "#F2F6FF" : spec.light.night);
+  fillLight.intensity = ph.ambient * 0.5;
+  fillLight.color.set(phase === "day" ? "#EFF5FF" : spec.light.night);
   lab.sun.intensity = ph.sun * spec.light.gain;
   lab.sun.color.set(phase === "day" ? spec.light.tone : spec.light.night);
-  const gain = ph.interior * spec.light.gain;
-  for (const [name, l] of Object.entries(lab.lights)) {
-    if (!(l as THREE.PointLight).isPointLight) continue;
-    (l as THREE.PointLight).intensity = (name === "bath" ? 3.2 : 7.5) * gain;
-    (l as THREE.PointLight).color.set(spec.light.night);
+
+  // 三层光按档位分配：日间靠天光、夜间靠室内灯、观影档只留重点光
+  const K: Record<string, number> =
+    phase === "day"
+      ? { room: 0.10, down: 0.22, strip: 0.35, pendant: 0.30 }
+      : phase === "night"
+        ? { room: 0.55, down: 0.70, strip: 1.0, pendant: 1.0 }
+        : { room: 0.08, down: 0.14, strip: 0.18, pendant: 0.22 };
+  // 灯具统一用中性暖白：风格色只用于自发光，避免"暖光 × 暖墙"叠成橙色
+  const warm = phase === "day" ? "#FFEFE2" : "#FFDFC0";
+  for (const l of Object.values(lab.lights)) {
+    const base = Number(l.userData.base ?? 0);
+    if (!base) continue;
+    const kind = String(l.userData.kind ?? "room");
+    const k = K[kind] ?? 0.3;
+    l.intensity = base * k * spec.light.gain;
+    if ((l as THREE.PointLight).isPointLight || (l as THREE.SpotLight).isSpotLight) l.color.set(warm);
   }
+
+  // 灯具自发光：灯带与灯罩自己也要亮起来，否则只是几束光
+  const glow = phase === "day" ? 0.7 : phase === "night" ? 1.5 : 0.35;
+  for (const m of lab.lampMats) m.emissiveIntensity = glow;
+
   for (const s of lab.screens) {
     const m = s.material as THREE.MeshStandardMaterial;
     m.emissiveIntensity = phase === "day" ? 0.2 : phase === "night" ? 0.9 : 1.6;
