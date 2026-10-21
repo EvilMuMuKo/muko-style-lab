@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { applyStyle, buildLab, type Lab } from "./build";
+import { applyPhase, applyStyle, buildLab, type Lab } from "./build";
 import { PHASES, ROOM_NAMES, STYLES, styleById, type PhaseId, type StyleSpec } from "./styles";
 
 const VERSION = "1.0.0";
@@ -277,7 +277,7 @@ function setPhase(id: PhaseId, opts: { tween?: boolean } = {}) {
   const fromSky = (sky.material as THREE.MeshBasicMaterial).color.clone();
   phase = id;
   const spec = styleById(current.id);
-  const ph = applyStyle(lab, spec, id);
+  const ph = applyPhase(lab, spec, id);
   const toSky = new THREE.Color(ph.sky);
   (sky.material as THREE.MeshBasicMaterial).color.copy(toSky);
   scene.fog = new THREE.Fog(new THREE.Color(ph.fog), 22, 46);

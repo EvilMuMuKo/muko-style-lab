@@ -701,6 +701,13 @@ export function applyStyle(lab: Lab, spec: StyleSpec, phase: PhaseId) {
 
   // 灯光
   const ph = PHASES[phase];
+  applyPhase(lab, spec, phase);
+  return ph;
+}
+
+/** 只切日夜：不动贴图，避免每次换档重生成 13 张 canvas 纹理 */
+export function applyPhase(lab: Lab, spec: StyleSpec, phase: PhaseId) {
+  const ph = PHASES[phase];
   lab.hemi.intensity = ph.ambient;
   const fillLight = lab.lights.fill as THREE.DirectionalLight;
   fillLight.intensity = ph.ambient * 0.62;
@@ -709,11 +716,10 @@ export function applyStyle(lab: Lab, spec: StyleSpec, phase: PhaseId) {
   lab.sun.color.set(phase === "day" ? spec.light.tone : spec.light.night);
   const gain = ph.interior * spec.light.gain;
   for (const [name, l] of Object.entries(lab.lights)) {
-    if (!(l instanceof THREE.PointLight)) continue;
-    l.intensity = (name === "bath" ? 3.2 : 7.5) * gain;
-    l.color.set(spec.light.night);
+    if (!(l as THREE.PointLight).isPointLight) continue;
+    (l as THREE.PointLight).intensity = (name === "bath" ? 3.2 : 7.5) * gain;
+    (l as THREE.PointLight).color.set(spec.light.night);
   }
-  // 夜间屏幕自发光
   for (const s of lab.screens) {
     const m = s.material as THREE.MeshStandardMaterial;
     m.emissiveIntensity = phase === "day" ? 0.2 : phase === "night" ? 0.9 : 1.6;
