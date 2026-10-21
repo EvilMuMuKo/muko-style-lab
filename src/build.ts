@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import plan from "./plan.json";
 import { PHASES, type PhaseId, type StyleSpec } from "./styles";
 import { finishTexture, patternedCanvas, plaqueTexture, wallTile } from "./textures";
@@ -54,6 +55,27 @@ function box(
   const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(w, 0.001), Math.max(h, 0.001), Math.max(d, 0.001)), material);
   m.position.set(x, y, z);
   m.castShadow = shadows;
+  m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+/** 圆角盒：软体家具用它，边角不再像积木（对齐 muko-home 的做法） */
+function rbox(
+  parent: THREE.Object3D,
+  material: THREE.Material,
+  w: number,
+  h: number,
+  d: number,
+  x: number,
+  y: number,
+  z: number,
+  radius = 0.03,
+): THREE.Mesh {
+  const r = Math.min(radius, w / 3, h / 3, d / 3);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(Math.max(w, 0.02), Math.max(h, 0.02), Math.max(d, 0.02), 2, r), material);
+  m.position.set(x, y, z);
+  m.castShadow = true;
   m.receiveShadow = true;
   parent.add(m);
   return m;
@@ -525,6 +547,21 @@ export function buildLab(): Lab {
     );
   };
 
+  /** place 的圆角版：软体家具用它 */
+  const placeR = (
+    o: any, material: THREE.Material,
+    sx: number, sy: number, sz: number,
+    offF: number, offY: number, offP = 0, radius = 0.035,
+  ) => {
+    const { fx, fz, px, pz } = faceOf(o);
+    const w = Math.abs(fx) > 0.5 ? sz : sx;
+    const dep = Math.abs(fx) > 0.5 ? sx : sz;
+    return rbox(
+      furniture, material, w, sy, dep,
+      o.x + fx * offF + px * offP, o.y + offY, o.z + fz * offF + pz * offP, radius,
+    );
+  };
+
   for (const o of plan.objects) {
     const { x, z, y, w, d, h, type } = o as any;
     if (type === "door_leaf") continue;
@@ -546,11 +583,11 @@ export function buildLab(): Lab {
         break;
       case "mattress": {
         // 床：床头在背向 face 的一端，被子朝脚
-        place(o, M.bed, w, h, d, 0, h / 2);
-        place(o, M.duvet, w - 0.05, 0.08, d * 0.64, d * 0.17, h + 0.03);
-        place(o, M.duvet, w - 0.05, 0.12, 0.06, d * 0.14, h + 0.05);
+        placeR(o, M.bed, w, h, d, 0, h / 2, 0, 0.06);
+        placeR(o, M.duvet, w - 0.05, 0.09, d * 0.64, d * 0.17, h + 0.035, 0, 0.05);
+        placeR(o, M.duvet, w - 0.05, 0.13, 0.07, d * 0.14, h + 0.05, 0, 0.05);
         for (const s of [-1, 1]) {
-          place(o, M.pillow, w * 0.37, 0.12, d * 0.16, -d * 0.31, h + 0.05, s * w * 0.21);
+          placeR(o, M.pillow, w * 0.37, 0.13, d * 0.16, -d * 0.31, h + 0.055, s * w * 0.21, 0.06);
         }
         break;
       }
@@ -561,22 +598,22 @@ export function buildLab(): Lab {
         const baseH = 0.16;
         const seatH = 0.22;
         place(o, M.dark, w * 0.98, baseH, d * 0.96, 0, baseH / 2, 0, false);
-        place(o, M.soft, w * 0.98, seatH, d * 0.8, d * 0.06, baseH + seatH / 2);
-        place(o, M.soft, w, 0.44, d * 0.2, -d * 0.4, baseH + seatH + 0.12);
+        placeR(o, M.soft, w * 0.98, seatH, d * 0.8, d * 0.06, baseH + seatH / 2, 0, 0.045);
+        placeR(o, M.soft, w, 0.44, d * 0.2, -d * 0.4, baseH + seatH + 0.12, 0, 0.05);
         for (const s of [-1, 1]) {
-          place(o, M.soft, w * 0.09, 0.46, d * 0.86, -d * 0.02, baseH + 0.2, s * (w / 2 - w * 0.045));
-          place(o, M.pillow, w * 0.2, 0.22, 0.11, -d * 0.2, baseH + seatH + 0.16, s * w * 0.25);
+          placeR(o, M.soft, w * 0.09, 0.46, d * 0.86, -d * 0.02, baseH + 0.2, s * (w / 2 - w * 0.045), 0.04);
+          placeR(o, M.pillow, w * 0.2, 0.22, 0.11, -d * 0.2, baseH + seatH + 0.16, s * w * 0.25, 0.05);
         }
         break;
       }
       case "lounge_chair":
-        place(o, M.wood, w * 0.9, 0.12, d * 0.86, 0, 0.4);
-        place(o, M.wood, w * 0.9, 0.5, 0.1, -d * 0.38, 0.66);
+        placeR(o, M.wood, w * 0.9, 0.13, d * 0.86, 0, 0.4, 0, 0.05);
+        placeR(o, M.wood, w * 0.9, 0.5, 0.1, -d * 0.38, 0.66, 0, 0.04);
         place(o, M.metal, w * 0.8, 0.36, 0.06, d * 0.32, 0.2, 0, false);
         break;
       case "office_chair":
-        place(o, M.soft, w * 0.9, 0.1, d * 0.9, 0, 0.46);
-        place(o, M.soft, w * 0.85, 0.5, 0.08, -d * 0.36, 0.76);
+        placeR(o, M.soft, w * 0.9, 0.11, d * 0.9, 0, 0.46, 0, 0.04);
+        placeR(o, M.soft, w * 0.85, 0.5, 0.08, -d * 0.36, 0.76, 0, 0.035);
         place(o, M.metal, 0.06, 0.42, 0.06, 0, 0.22, 0, false);
         break;
       case "counter_stool":
@@ -940,8 +977,7 @@ export function buildLab(): Lab {
   book(8.42, 0.825, 3.98, -0.3, 0.2, 0.14);
   book(9.72, 0.79, 3.95, 0.05);
   book(0.95, 1.2, 3.1, 0.1);
-  box(furniture, M.ceramic, 0.09, 0.13, 0.09, 3.42, 0.805, 6.9, false);
-  box(furniture, M.ceramic, 0.07, 0.1, 0.07, 3.3, 0.79, 7.12, false);
+  // （餐桌已撤，桌面杯具一并去掉，避免悬空）
   for (let i = 0; i < 3; i++) {
     box(furniture, M.metal, 0.07, 0.26, 0.07, 0.28 + i * 0.085, 1.08, 7.56, false);
   }
