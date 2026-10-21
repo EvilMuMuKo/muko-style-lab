@@ -45,6 +45,13 @@ scene.fog = new THREE.Fog(0xc9d6dc, 22, 46);
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.05, 90);
 
+// 按需渲染：只有相机在动、正在过渡或显式标记时才提交一帧。
+// CI 的软件光栅化下每帧代价很高，持续渲染会让点击迟迟落不下来。
+let dirty = true;
+const markDirty = () => {
+  dirty = true;
+};
+
 const lab: Lab = buildLab();
 scene.add(lab.root);
 scene.add(lab.hemi);
@@ -114,6 +121,7 @@ let walking = false;
 const walk = { x: 5.6, z: 8.0, yaw: 1.2, pitch: -0.05, keys: new Set<string>() };
 
 function enterWalk() {
+  markDirty();
   walking = true;
   walk.x = camera.position.x;
   walk.z = camera.position.z;
@@ -126,6 +134,7 @@ function enterWalk() {
 }
 
 function exitWalk() {
+  markDirty();
   walking = false;
   document.body.classList.remove("walking");
   hud.textContent = "";
@@ -167,6 +176,7 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 canvas.addEventListener("pointermove", (e) => {
   if (!dragging) return;
+  markDirty();
   const dx = e.clientX - lastX;
   const dy = e.clientY - lastY;
   lastX = e.clientX;
@@ -189,6 +199,7 @@ canvas.addEventListener(
     e.preventDefault();
     if (walking) return;
     orbit.gradius = THREE.MathUtils.clamp(orbit.gradius * (1 + e.deltaY * 0.0011), 1.2, 22);
+    markDirty();
   },
   { passive: false },
 );
@@ -245,6 +256,7 @@ function fillViews() {
 }
 
 function selectView(v: ViewDef) {
+  markDirty();
   currentView = v;
   if (walking) exitWalk();
   goalFromView(v);
@@ -273,6 +285,7 @@ for (const id of Object.keys(PHASES) as PhaseId[]) {
 let phaseTween: { t0: number; from: number; to: number; fromSky: THREE.Color; toSky: THREE.Color } | null = null;
 
 function setPhase(id: PhaseId, opts: { tween?: boolean } = {}) {
+  markDirty();
   const from = lab.hemi.intensity;
   const fromSky = (sky.material as THREE.MeshBasicMaterial).color.clone();
   phase = id;
@@ -306,6 +319,7 @@ function snapshot() {
 }
 
 function setStyle(id: string, opts: { flash?: boolean } = {}) {
+  markDirty();
   const next = styleById(id);
   const from = snapshot();
   const sunFrom = lab.sun.color.clone();
@@ -374,11 +388,18 @@ window.addEventListener("keydown", (e) => {
   const n = Number(e.key);
   if (!walking && n >= 1 && n <= STYLES.length) setStyle(STYLES[n - 1].id);
   if (e.key === "Escape" && walking) exitWalk();
-  if (walking) walk.keys.add(e.key.toLowerCase());
+  if (walking) {
+    walk.keys.add(e.key.toLowerCase());
+    markDirty();
+  }
 });
-window.addEventListener("keyup", (e) => walk.keys.delete(e.key.toLowerCase()));
+window.addEventListener("keyup", (e) => {
+  walk.keys.delete(e.key.toLowerCase());
+  markDirty();
+});
 
 window.addEventListener("resize", () => {
+  markDirty();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -401,6 +422,7 @@ setPhase((params.get("phase") as PhaseId) ?? "day", { tween: false });
 
 const clock = new THREE.Clock();
 let frames = 0;
+
 const tmpDir = new THREE.Vector3();
 
 renderer.setAnimationLoop(() => {
@@ -449,10 +471,20 @@ renderer.setAnimationLoop(() => {
     if (p >= 1) phaseTween = null;
   }
 
-  sky.position.copy(camera.position);
-  renderer.render(scene, camera);
-  frames += 1;
-  if (!ready && frames > 2) ready = true;
+  const settling =
+    Math.abs(orbit.gyaw - orbit.yaw) > 1e-4 ||
+    Math.abs(orbit.gpitch - orbit.pitch) > 1e-4 ||
+    Math.abs(orbit.gradius - orbit.radius) > 1e-4 ||
+    orbit.gtarget.distanceToSquared(orbit.target) > 1e-8 ||
+    Math.abs(orbit.gfov - orbit.fov) > 1e-3;
+  const movingWalk = walking && (walk.keys.size > 0 || dragging);
+  if (dirty || settling || movingWalk || tween || phaseTween) {
+    sky.position.copy(camera.position);
+    renderer.render(scene, camera);
+    dirty = false;
+    frames += 1;
+    if (!ready && frames > 2) ready = true;
+  }
 });
 
 // ---------- 调试 / 自动化 API ----------
