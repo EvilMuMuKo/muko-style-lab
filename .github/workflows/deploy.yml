@@ -36,6 +36,7 @@ jobs:
 
   test:
     name: test (${{ matrix.shard }}/2)
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -48,6 +49,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --fully-parallel --shard=${{ matrix.shard }}/2
 
