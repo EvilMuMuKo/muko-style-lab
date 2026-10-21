@@ -438,7 +438,7 @@ export function buildLab(): Lab {
 
   // 木台边（水吧侧）
   // 出水吧侧木台板：厚 50、比砖面凸 25（参考 02/05）
-  box(wallsGroup, M.wood, px1 - px0, 0.05, 0.35, (px0 + px1) / 2, 0.925, pz + 0.275);
+  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.12, (px0 + px1) / 2, 0.935, pz + 0.135);
 
   // ---------------- 墙面砖（厨房 + 卫浴） ----------------
   const wallTiles: Lab["wallTiles"] = [];
@@ -952,7 +952,7 @@ export function buildLab(): Lab {
   };
   swingLamp(4.86, 2.32, 6.62, 2.55, 6.15);
 
-  lantern(1.845, 2.10, 7.30, 0.14);
+  lantern(0.95, 2.16, 7.32, 0.15);
 
   // ---------------- R2 软装：踢脚线 / 窗帘 / 桌面小物 ----------------
   // 踢脚线：沿每个房间轮廓向内 11mm，100 高 20 厚

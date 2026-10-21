@@ -148,14 +148,14 @@ export const STYLES: StyleSpec[] = [
     note: "最接近家里现有气质：亚光、低对比、漫射光；彩色只出现在酒瓶、画和一只凳子上。",
     risk: "低对比在阴天几乎没层次，需要靠材质粗糙度差而不是靠颜色区分。",
     palette: {
-      wall: "#E8E2D6",
-      ceiling: "#EFEBE1",
-      wood: "#C9A882",
-      wood2: "#AD8A63",
-      stone: "#D6CFC0",
-      cabinet: "#C9A882",
-      cabinetUpper: "#E4DDD0",
-      counter: "#DFD8CB",
+      wall: "#DFD7C8",
+      ceiling: "#E6E0D4",
+      wood: "#C09B74",
+      wood2: "#A27F59",
+      stone: "#CBC3B3",
+      cabinet: "#C09B74",
+      cabinetUpper: "#D8D0C1",
+      counter: "#D3CABA",
       tile: "#E6E0D4",
       grout: "#CFC7B8",
       frame: "#1A1C1E",
@@ -224,7 +224,7 @@ export const STYLES: StyleSpec[] = [
 ];
 
 export const PHASES = {
-  day: { sun: 3.1, ambient: 1.05, interior: 0.55, exposure: 1.04, sky: "#C6D9E6", fog: "#C3D2DA" },
+  day: { sun: 3.1, ambient: 1.05, interior: 0.55, exposure: 0.98, sky: "#C6D9E6", fog: "#C3D2DA" },
   night: { sun: 0.0, ambient: 0.16, interior: 1.0, exposure: 1.12, sky: "#0A0F17", fog: "#0B1017" },
   cinema: { sun: 0.0, ambient: 0.05, interior: 0.12, exposure: 0.9, sky: "#05070C", fog: "#05070C" },
 } as const;
