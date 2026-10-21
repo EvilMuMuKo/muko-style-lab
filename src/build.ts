@@ -375,7 +375,7 @@ export function buildLab(): Lab {
   box(folded, M.frame, 0.05, head - sill, 0.05, -leaf + 0.02, 0, 0, false);
   glassPanes.push(flat(folded, M.glass, leaf - 0.08, head - sill - 0.1, -leaf / 2, 0, 0, 0, 0));
   // 木台边（水吧侧）
-  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.35, (px0 + px1) / 2, 0.935, pz + 0.175);
+  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.35, (px0 + px1) / 2, 0.935, pz + 0.195);
 
   // ---------------- 墙面砖（厨房 + 卫浴） ----------------
   const wallTiles: Lab["wallTiles"] = [];
@@ -385,7 +385,8 @@ export function buildLab(): Lab {
   };
   addTile(3.9, 2.1, 1.96, 1.05, 3.4 + 0.075, 0);
   addTile(2.45, 2.1, 0.075, 1.05, 4.625, Math.PI / 2);
-  addTile(3.74, 0.95, 1.96, 0.475, 5.85 + 0.075, 0);
+  // 砖收在木台边下沿（0.92），否则砖面会切穿台边产生白条
+  addTile(3.74, 0.92, 1.96, 0.46, 5.85 + 0.075, 0);
   addTile(2.1, 2.1, 5.85, 1.05, 2.0 - 0.075, Math.PI);
   addTile(2.1, 2.1, 4.8 + 0.075, 1.05, 1.0, -Math.PI / 2);
 
@@ -722,7 +723,8 @@ export function buildLab(): Lab {
     return m;
   };
   const stripMat = glowMat(0xffe9cc, 0xffb469, 1.4);
-  const shadeMat = glowMat(0xfff1dc, 0xffbe7d, 1.2);
+  // 灯罩用固定的低自发光：它自己不该比发光体更亮，亮度靠里面的点光源
+  const shadeMat = new THREE.MeshStandardMaterial({ color: 0xffcf96, emissive: 0xff9d4d, emissiveIntensity: 0.45, roughness: 0.9, metalness: 0 });
 
   const spot = (
     name: string, kind: string, x: number, y: number, z: number,
@@ -772,9 +774,9 @@ export function buildLab(): Lab {
     const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, H - 0.02 - y - r, 6), M.frame);
     cord.position.set(x, (H + y + r) / 2 - 0.01, z);
     root.add(cord);
-    const l = new THREE.PointLight(0xffb877, 7, 4.8, 2);
+    const l = new THREE.PointLight(0xffb877, 5.5, 4.6, 2);
     l.position.set(x, y - r * 0.35, z);
-    l.userData.base = 7;
+    l.userData.base = 5.5;
     l.userData.kind = "pendant";
     root.add(l);
     lights["pendant:" + z.toFixed(2)] = l;
