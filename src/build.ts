@@ -1002,6 +1002,53 @@ export function buildLab(): Lab {
     box(furniture, M.metal, 0.07, 0.26, 0.07, 0.28 + i * 0.085, 1.08, 7.56, false);
   }
 
+  // 厨房台面道具（对齐 02/17 的台面密度）
+  {
+    const jar = (x: number, z: number, h: number, r: number, mat: THREE.Material) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 16), mat);
+      m.position.set(x, 0.95 + h / 2, z);
+      m.castShadow = true;
+      furniture.add(m);
+      box(furniture, M.metal, r * 2.1, 0.02, r * 2.1, x, 0.95 + h + 0.01, z, false);
+    };
+    jar(0.35, 4.35, 0.19, 0.055, M.ceramic);
+    jar(0.5, 4.36, 0.15, 0.05, M.ceramic);
+    jar(0.63, 4.35, 0.23, 0.045, M.b);
+    box(furniture, M.wood2, 0.42, 0.03, 0.28, 0.95, 0.965, 4.42, false);   // 砧板
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.14, 18), M.metal);
+    pot.position.set(1.02, 1.02, 3.77);
+    pot.castShadow = true;
+    furniture.add(pot);
+    box(furniture, M.metal, 0.2, 0.012, 0.05, 1.02, 1.1, 3.77, false);      // 锅盖把手
+    const kettle = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.2, 16), M.metal);
+    kettle.position.set(2.62, 1.05, 3.79);
+    kettle.castShadow = true;
+    furniture.add(kettle);
+  }
+
+  // ---------------- 接触阴影（AO 的廉价替代）：每件落地家具压一片径向渐变 ----------------
+  {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const ctx = c.getContext("2d")!;
+    const g = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
+    g.addColorStop(0, "rgba(0,0,0,0.55)");
+    g.addColorStop(0.55, "rgba(0,0,0,0.22)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    const shadeMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.85 });
+    for (const o of plan.objects as any[]) {
+      if (o.type === "door_leaf" || o.type === "ceiling_equipment") continue;
+      if ((o.y ?? 0) > 0.05) continue;
+      const w = o.w ?? 0;
+      const d = o.d ?? 0;
+      if (Math.min(w, d) < 0.28) continue;
+      flat(furniture, shadeMat, w * 1.25, d * 1.25, o.x, 0.006, o.z, -Math.PI / 2, 0);
+    }
+  }
+
   // 墙上挂画（破掉大面空墙）
   const picture = (x: number, y: number, z: number, w: number, h: number, axis: "x" | "z", tint: THREE.Material) => {
     if (axis === "z") {
