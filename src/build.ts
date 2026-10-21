@@ -23,6 +23,8 @@ export interface Lab {
   sun: THREE.DirectionalLight;
   hemi: THREE.HemisphereLight;
   bulb: THREE.Mesh;
+  /** 灯具自发光材质（灯带 / 灯罩），按档位调亮度 */
+  lampMats: Mat[];
   floors: { mesh: THREE.Mesh; room: string; w: number; d: number }[];
   wallTiles: { mesh: THREE.Mesh; w: number; h: number }[];
   sign: { mat: THREE.MeshBasicMaterial };
@@ -122,6 +124,8 @@ export function buildLab(): Lab {
     cabinet: mat(0xd9cbb6, 0.66),
     cabinetUpper: mat(0xe8e4d8, 0.68),
     counter: mat(0xeee7da, 0.45),
+    joint: mat(0x2a2a26, 0.9),
+    shoe: mat(0x24241f, 0.92),
     tile: mat(0xffffff, 0.4),
     frame: mat(0x16181c, 0.5, 0.2),
     metal: mat(0xc5c8cc, 0.32, 0.85),
@@ -185,7 +189,7 @@ export function buildLab(): Lab {
   seg(6.9, 0, 6.9, 4.4);
   wallRun(wallsGroup, M.wall, true, 4.4, 6.9, 11.65, []);
   seg(6.9, 4.4, 11.65, 4.4);
-  wallRun(wallsGroup, M.wall, true, 5.85, 0, 3.92, [{ a: 0.09, b: 2.71, y0: 0.95, y1: 2.35 }]);
+  wallRun(wallsGroup, M.wall, true, 5.85, 0, 3.92, [{ a: 0.09, b: 3.83, y0: 0.95, y1: 2.35 }]);
   seg(0, 5.85, 3.92, 5.85);
   wallRun(wallsGroup, M.wall, false, 7.0, 4.4, 5.4, []);
   seg(7.0, 4.4, 7.0, 5.4);
@@ -231,6 +235,16 @@ export function buildLab(): Lab {
   // ---------------- 天花 ----------------
   flat(ceiling, M.ceiling, 11.65, 4.4, 5.825, H - 0.001, 2.2, Math.PI / 2, 0);
   flat(ceiling, M.ceiling, 12.85, 4.95, 6.425, H - 0.001, 6.875, Math.PI / 2, 0);
+  ceiling.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.castShadow = true;
+    // 只让它在阴影通道里双面剔除，正常渲染仍是单面：
+    // 否则全屋俯视/透视会看到一块白色天花板把室内盖住。
+    const cm = mesh.material as THREE.Material;
+    cm.shadowSide = THREE.DoubleSide;
+    cm.needsUpdate = true;
+  });
   root.add(ceiling);
 
   // ---------------- 窗 ----------------
@@ -277,7 +291,7 @@ export function buildLab(): Lab {
   win(false, 12.85, 5.05, 8.65, 0.9, 2.35);
 
   // ---------------- 门（框 + 开启的门扇） ----------------
-  const door = (horizontal: boolean, fixed: number, a: number, b: number, swing = 1) => {
+  const door = (horizontal: boolean, fixed: number, a: number, b: number, swing = 1, angle = 1.15) => {
     const w = b - a;
     const hh = 2.08;
     const mid = (a + b) / 2;
@@ -288,7 +302,7 @@ export function buildLab(): Lab {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, hh - 0.03, 0.04), M.cabinetUpper);
       leaf.geometry.translate((w - 0.04) / 2, 0, 0);
       leaf.position.set(a, (hh - 0.03) / 2, fixed);
-      leaf.rotation.y = swing * 1.15;
+      leaf.rotation.y = swing * angle;
       leaf.castShadow = true;
       wallsGroup.add(leaf);
     } else {
@@ -298,13 +312,14 @@ export function buildLab(): Lab {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.04, hh - 0.03, w - 0.04), M.cabinetUpper);
       leaf.geometry.translate(0, 0, (w - 0.04) / 2);
       leaf.position.set(fixed, (hh - 0.03) / 2, a);
-      leaf.rotation.y = swing * 1.15;
+      leaf.rotation.y = swing * angle;
       leaf.castShadow = true;
       wallsGroup.add(leaf);
     }
   };
   door(true, 3.4, 3.92, 4.78, -1);
-  door(true, 2.0, 5.5, 6.3, 1);
+  // 卫生间只有 2.1×2.0，门开 66° 会扫掉半个房间，改成只开 10°
+  door(true, 2.0, 5.5, 6.3, 1, 0.18);
   door(false, 6.9, 3.21, 4.09, 1);
   door(true, 8.45, 5.225, 6.325, -1);
 
@@ -337,7 +352,7 @@ export function buildLab(): Lab {
 
   // ---------------- 出品窗（厨房 ↔ 水吧） ----------------
   const px0 = 0.09;
-  const px1 = 2.71;
+  const px1 = 3.83;
   const sill = 0.95;
   const head = 2.35;
   const leaf = 0.7;
@@ -360,7 +375,7 @@ export function buildLab(): Lab {
   box(folded, M.frame, 0.05, head - sill, 0.05, -leaf + 0.02, 0, 0, false);
   glassPanes.push(flat(folded, M.glass, leaf - 0.08, head - sill - 0.1, -leaf / 2, 0, 0, 0, 0));
   // 木台边（水吧侧）
-  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.26, (px0 + px1) / 2, 0.935, pz + 0.13);
+  box(wallsGroup, M.wood, px1 - px0, 0.03, 0.35, (px0 + px1) / 2, 0.935, pz + 0.175);
 
   // ---------------- 墙面砖（厨房 + 卫浴） ----------------
   const wallTiles: Lab["wallTiles"] = [];
@@ -370,7 +385,7 @@ export function buildLab(): Lab {
   };
   addTile(3.9, 2.1, 1.96, 1.05, 3.4 + 0.075, 0);
   addTile(2.45, 2.1, 0.075, 1.05, 4.625, Math.PI / 2);
-  addTile(2.62, 0.95, 1.4, 0.475, 5.85 + 0.075, 0);
+  addTile(3.74, 0.95, 1.96, 0.475, 5.85 + 0.075, 0);
   addTile(2.1, 2.1, 5.85, 1.05, 2.0 - 0.075, Math.PI);
   addTile(2.1, 2.1, 4.8 + 0.075, 1.05, 1.0, -Math.PI / 2);
 
@@ -385,6 +400,63 @@ export function buildLab(): Lab {
     }
   };
 
+  // ---------------- R2 构造层：分缝 / 踢脚 / 台面边 ----------------
+  const roomCentre = (room: string) => {
+    const r = (plan.rooms as any[]).find((q) => q.id === room);
+    if (!r) return { cx: 6.4, cz: 4.7 };
+    let sx = 0;
+    let sz = 0;
+    for (const p of r.polygon) {
+      sx += p[0];
+      sz += p[1];
+    }
+    return { cx: sx / r.polygon.length, cz: sz / r.polygon.length };
+  };
+  /** 朝向房间中心的那一面：返回法线方向与"沿面"轴 */
+  const frontOf = (o: any) => {
+    const c = roomCentre(o.room);
+    const dx = c.cx - o.x;
+    const dz = c.cz - o.z;
+    // alongZ = 正面法线朝 z 轴（靠南北墙的柜子），否则朝 x 轴（靠东西墙）
+    const alongZ = Math.abs(dz) >= Math.abs(dx);
+    return { alongZ, sign: alongZ ? Math.sign(dz || 1) : Math.sign(dx || 1) };
+  };
+  /** 柜体：踢脚内退 + 门板分缝 */
+  const cabinetBody = (o: any, material: THREE.Material) => {
+    const { x, z, y, w, d, h } = o;
+    const toe = y < 0.01 && h > 0.55 ? 0.09 : 0;
+    const bodyY = y + toe;
+    const bodyH = h - toe;
+    box(furniture, material, w, bodyH, d, x, bodyY + bodyH / 2, z);
+    if (toe > 0) box(furniture, M.shoe, Math.max(w - 0.05, 0.05), toe, Math.max(d - 0.06, 0.05), x, y + toe / 2, z, false);
+    const { alongZ, sign } = frontOf(o);
+    const span = alongZ ? d : w;
+    if (span < 0.34 || bodyH < 0.34) return;
+    const face = alongZ ? w / 2 : d / 2;
+    const n = Math.max(1, Math.round(span / 0.6));
+    for (let i = 1; i < n; i++) {
+      const t = -span / 2 + (span * i) / n;
+      const px = alongZ ? x + sign * (face + 0.003) : x + t;
+      const pz = alongZ ? z + t : z + sign * (face + 0.003);
+      box(furniture, M.joint, alongZ ? 0.005 : 0.006, bodyH - 0.02, alongZ ? 0.006 : 0.005, px, bodyY + bodyH / 2, pz, false);
+    }
+  };
+  /** 台面：四边悬出 20mm + 底边滴水线 */
+  const counterSlab = (o: any, material: THREE.Material) => {
+    const { x, z, y, w, d, h } = o;
+    const t = Math.max(h, 0.02);
+    box(furniture, material, w + 0.04, t, d + 0.04, x, y + t / 2, z);
+    const dy = y + 0.006;
+    for (const [sx, sz, bw, bd] of [
+      [0, 1, w + 0.02, 0.006],
+      [0, -1, w + 0.02, 0.006],
+      [1, 0, 0.006, d + 0.02],
+      [-1, 0, 0.006, d + 0.02],
+    ] as [number, number, number, number][]) {
+      box(furniture, M.joint, bw, 0.006, bd, x + sx * (w / 2 + 0.011), dy, z + sz * (d / 2 + 0.011), false);
+    }
+  };
+
   for (const o of plan.objects) {
     const { x, z, y, w, d, h, type } = o as any;
     if (type === "door_leaf") continue;
@@ -392,7 +464,7 @@ export function buildLab(): Lab {
       case "column":
         break;
       case "wall_storage":
-        box(furniture, h > 2 ? M.cabinet : y > 1.2 ? M.cabinetUpper : M.cabinet, w, h, d, x, y + h / 2, z);
+        cabinetBody(o, h > 2 ? M.cabinet : y > 1.2 ? M.cabinetUpper : M.cabinet);
         if (h > 2) box(furniture, M.cabinetUpper, w * 0.9, 0.03, d * 0.96, x, y + h - 0.02, z, false);
         break;
       case "cabinet_frame":
@@ -401,7 +473,7 @@ export function buildLab(): Lab {
           box(furniture, M.wood, w, 1.05, 0.07, x, y + 0.52, z - d / 2 + 0.03);
           break;
         }
-        if (h <= 0.1) box(furniture, M.counter, w, Math.max(h, 0.03), d, x, y + Math.max(h, 0.03) / 2, z);
+        if (h <= 0.1) counterSlab(o, M.counter);
         else box(furniture, M.wood, w, h, d, x, y + h / 2, z);
         break;
       case "mattress":
@@ -476,18 +548,44 @@ export function buildLab(): Lab {
       case "hob":
         box(furniture, M.dark, w, 0.02, d, x, y + 0.01, z, false);
         break;
-      case "hood":
+      case "hood": {
+        // 油烟机 = 机罩 + 到顶烟道（原来只有一块悬空的板）
         box(furniture, M.metal, w, h, d, x, y + h / 2, z, false);
+        const chimneyH = Math.max(H - 0.01 - (y + h), 0.1);
+        box(furniture, M.metal, w * 0.42, chimneyH, d * 0.62, x, y + h + chimneyH / 2, z - d * 0.18, false);
         break;
-      case "sink":
-        box(furniture, M.metal, w, 0.03, d, x, y + 0.01, z, false);
+      }
+      case "sink": {
+        // 大单槽：台面开洞感的盆 + 龙头（龙头装在背向房间中心的一侧）
+        box(furniture, M.metal, w, 0.02, d, x, y + 0.005, z, false);
+        box(furniture, M.appliance, w - 0.07, 0.16, d - 0.07, x, y - 0.075, z, false);
+        const { alongZ, sign } = frontOf(o);
+        const back = -sign;
+        const bx = alongZ ? x + back * (w / 2 - 0.07) : x;
+        const bz = alongZ ? z : z + back * (d / 2 - 0.07);
+        box(furniture, M.metal, 0.05, 0.3, 0.05, bx, y + 0.15, bz, false);
+        box(furniture, M.metal, alongZ ? 0.04 : 0.2, 0.04, alongZ ? 0.2 : 0.04, alongZ ? bx - back * 0.09 : bx + 0.09, y + 0.28, alongZ ? bz + 0.09 : bz, false);
+        box(furniture, M.metal, 0.03, 0.10, 0.03, bx, y + 0.33, bz, false);
         break;
+      }
       case "coffee":
       case "grinder":
-      case "kegerator":
-      case "beer_font":
         box(furniture, M.appliance, w, h, d, x, y + h / 2, z);
         break;
+      case "kegerator": {
+        // 台面下扎啤机：机身 + 不锈钢前门 + 门把手
+        box(furniture, M.appliance, w, h, d, x, y + h / 2, z);
+        box(furniture, M.metal, w - 0.06, h - 0.1, 0.015, x, y + h / 2, z + d / 2 + 0.004, false);
+        box(furniture, M.metal, 0.02, 0.3, 0.03, x + w / 2 - 0.07, y + h * 0.55, z + d / 2 + 0.022, false);
+        break;
+      }
+      case "beer_font": {
+        // 台面酒头塔：立柱 + 出酒口 + 把手
+        box(furniture, M.metal, 0.09, h * 0.72, 0.09, x, y + h * 0.36, z, false);
+        box(furniture, M.metal, 0.17, 0.06, 0.10, x, y + h * 0.76, z, false);
+        box(furniture, M.dark, 0.03, 0.05, 0.15, x, y + h * 0.9, z + 0.035, false);
+        break;
+      }
       case "keg":
       case "co2":
         box(furniture, M.metal, w, h, d, x, y + h / 2, z);
@@ -527,13 +625,17 @@ export function buildLab(): Lab {
           furniture.add(leaf);
         }
         break;
-      case "floor_lamp":
+      case "floor_lamp": {
         box(furniture, M.metal, 0.05, h, 0.05, x, y + h / 2, z, false);
-        {
-          const shade = new THREE.Mesh(new THREE.ConeGeometry(w * 0.45, h * 0.16, 16, 1, true), M.cabinetUpper);
-          shade.position.set(x, y + h - 0.06, z);
-          furniture.add(shade);
-        }
+        box(furniture, M.metal, Math.max(w * 0.5, 0.16), 0.02, Math.max(d * 0.5, 0.16), x, y + 0.01, z, false);
+        const shade = new THREE.Mesh(new THREE.ConeGeometry(w * 0.42, h * 0.14, 16, 1, true), M.cabinetUpper);
+        shade.position.set(x, y + h - h * 0.09, z);
+        furniture.add(shade);
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff0d4 }));
+        bulb.position.set(x, y + h - h * 0.14, z);
+        furniture.add(bulb);
+        break;
+      }
         break;
       case "pegboard":
         box(furniture, M.wood2, w, h, d, x, y + h / 2, z, false);
@@ -563,10 +665,11 @@ export function buildLab(): Lab {
   const signMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   flat(accents, signMat, 0.9, 0.2, 2.45, 2.52, 5.85 + 0.09, 0, 0);
 
-  // 墙体只接收阴影、不投射：避免贴墙掠射角的自阴影噪点
+  // R2：墙与顶参与投影，白天只有从门窗洞进来的光能落地。
+  // normalBias 已经调过（见 sun.shadow.normalBias），贴墙掠射的噪点可接受。
   wallsGroup.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh) mesh.castShadow = false;
+    if (mesh.isMesh) mesh.castShadow = true;
   });
 
   // ---------------- 灯光 ----------------
@@ -574,7 +677,7 @@ export function buildLab(): Lab {
   const sun = new THREE.DirectionalLight(0xfff0dc, 2.4);
   sun.position.set(-6, 7.5, 12);
   sun.target.position.set(6, 0, 4.6);
-  sun.castShadow = false;
+  sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -7.5;
   sun.shadow.camera.right = 7.5;
@@ -593,6 +696,8 @@ export function buildLab(): Lab {
   const point = (name: string, x: number, y: number, z: number, intensity: number, dist: number) => {
     const l = new THREE.PointLight(0xffe3bd, intensity, dist, 2);
     l.position.set(x, y, z);
+    l.userData.base = intensity;
+    l.userData.kind = "room";
     lights[name] = l;
     return l;
   };
@@ -609,6 +714,75 @@ export function buildLab(): Lab {
   bulb.position.set(1.44, 1.5, 6.3);
   root.add(bulb);
 
+  // ---------------- R2 灯具：顶面筒灯 / 吊柜灯带 / 装饰吊灯 ----------------
+  const lampMats: Mat[] = [];
+  const glowMat = (color: number, emissive: number, power: number) => {
+    const m = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: power, roughness: 0.55, metalness: 0 });
+    lampMats.push(m);
+    return m;
+  };
+  const stripMat = glowMat(0xffe9cc, 0xffb469, 1.4);
+  const shadeMat = glowMat(0xfff1dc, 0xffbe7d, 1.2);
+
+  const spot = (
+    name: string, kind: string, x: number, y: number, z: number,
+    tx: number, ty: number, tz: number, intensity: number,
+    angle = 0.9, penumbra = 0.7, dist = 6.5,
+  ) => {
+    const l = new THREE.SpotLight(0xffe3c4, intensity, dist, angle, penumbra, 2);
+    l.position.set(x, y, z);
+    l.target.position.set(tx, ty, tz);
+    l.userData.base = intensity;
+    l.userData.kind = kind;
+    root.add(l);
+    root.add(l.target);
+    lights[name] = l;
+    return l;
+  };
+
+  // 顶面筒灯：每空间一处，略向内倾，避免顶端过曝
+  spot("down:kitchen", "down", 1.95, 2.62, 4.6, 1.6, 0, 4.35, 7, 0.95, 0.75, 6);
+  spot("down:bar", "down", 2.3, 2.62, 7.2, 1.9, 0, 7.35, 7, 0.95, 0.75, 6);
+  spot("down:living", "down", 9.3, 2.62, 6.9, 9.2, 0, 6.9, 9, 1.0, 0.75, 7);
+  spot("down:master", "down", 9.3, 2.62, 2.2, 9.3, 0, 2.2, 6, 0.95, 0.75, 6);
+  spot("down:guest", "down", 2.2, 2.62, 1.7, 2.2, 0, 1.7, 6, 0.95, 0.75, 6);
+  spot("down:bath", "down", 5.85, 2.62, 1.0, 5.85, 0, 1.0, 4, 0.95, 0.75, 4);
+  spot("down:hall", "down", 5.8, 2.62, 6.4, 5.8, 0, 6.4, 5, 0.95, 0.75, 5);
+  spot("down:balcony", "down", 12.25, 2.5, 6.8, 12.25, 0, 6.8, 3, 0.9, 0.8, 4);
+
+  // 吊柜下灯带：两条亚光发光条 + 两盏洗台面的窄角光
+  const stripBar = (x1: number, x2: number, y: number, z: number, depth = 0.03) => {
+    const m = box(accents, stripMat, Math.abs(x2 - x1), 0.012, depth, (x1 + x2) / 2, y, z, false);
+    m.castShadow = false;
+    return m;
+  };
+  stripBar(0.17, 0.79, 1.575, 3.83);
+  stripBar(1.72, 2.84, 1.575, 3.83);
+  stripBar(0.20, 3.49, 1.545, 7.62, 0.028);
+  spot("strip:kitchen-a", "strip", 0.48, 1.55, 3.80, 0.48, 0.94, 3.96, 5.2, 0.95, 0.92, 1.8);
+  spot("strip:kitchen-b", "strip", 2.28, 1.55, 3.80, 2.28, 0.94, 3.96, 5.2, 0.95, 0.92, 1.8);
+  spot("strip:bar", "strip", 1.85, 1.52, 7.68, 1.85, 0.94, 7.86, 6.0, 1.05, 0.92, 2.1);
+
+  // 装饰吊灯：出品窗外侧 + 水吧上方（纸灯笼）
+  const lantern = (x: number, y: number, z: number, r: number) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), shadeMat);
+    m.position.set(x, y, z);
+    m.castShadow = false;
+    root.add(m);
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, H - 0.02 - y - r, 6), M.frame);
+    cord.position.set(x, (H + y + r) / 2 - 0.01, z);
+    root.add(cord);
+    const l = new THREE.PointLight(0xffb877, 7, 4.8, 2);
+    l.position.set(x, y - r * 0.35, z);
+    l.userData.base = 7;
+    l.userData.kind = "pendant";
+    root.add(l);
+    lights["pendant:" + z.toFixed(2)] = l;
+    return m;
+  };
+  lantern(1.96, 2.02, 6.15, 0.13);
+  lantern(1.845, 2.10, 7.30, 0.14);
+
   const screens: THREE.Mesh[] = [];
   furniture.traverse((o2) => {
     if ((o2 as THREE.Mesh).material === M.screen) screens.push(o2 as THREE.Mesh);
@@ -622,6 +796,7 @@ export function buildLab(): Lab {
     sun,
     hemi,
     bulb,
+    lampMats,
     floors,
     wallTiles,
     sign: { mat: signMat },
@@ -709,17 +884,37 @@ export function applyStyle(lab: Lab, spec: StyleSpec, phase: PhaseId) {
 export function applyPhase(lab: Lab, spec: StyleSpec, phase: PhaseId) {
   const ph = PHASES[phase];
   lab.hemi.intensity = ph.ambient;
+  // 夜间环境光压成冷色，给暖光留出对比
+  lab.hemi.color.set(phase === "day" ? "#FFFFFF" : "#5C7086");
+  lab.hemi.groundColor.set(phase === "day" ? "#8B8578" : "#3A2E24");
   const fillLight = lab.lights.fill as THREE.DirectionalLight;
-  fillLight.intensity = ph.ambient * 0.62;
-  fillLight.color.set(phase === "day" ? "#F2F6FF" : spec.light.night);
+  fillLight.intensity = ph.ambient * 0.5;
+  fillLight.color.set(phase === "day" ? "#EFF5FF" : spec.light.night);
   lab.sun.intensity = ph.sun * spec.light.gain;
   lab.sun.color.set(phase === "day" ? spec.light.tone : spec.light.night);
-  const gain = ph.interior * spec.light.gain;
-  for (const [name, l] of Object.entries(lab.lights)) {
-    if (!(l as THREE.PointLight).isPointLight) continue;
-    (l as THREE.PointLight).intensity = (name === "bath" ? 3.2 : 7.5) * gain;
-    (l as THREE.PointLight).color.set(spec.light.night);
+
+  // 三层光按档位分配：日间靠天光、夜间靠室内灯、观影档只留重点光
+  const K: Record<string, number> =
+    phase === "day"
+      ? { room: 0.10, down: 0.22, strip: 0.35, pendant: 0.30 }
+      : phase === "night"
+        ? { room: 0.55, down: 0.70, strip: 1.0, pendant: 1.0 }
+        : { room: 0.08, down: 0.14, strip: 0.18, pendant: 0.22 };
+  // 灯具统一用中性暖白：风格色只用于自发光，避免"暖光 × 暖墙"叠成橙色
+  const warm = phase === "day" ? "#FFEFE2" : "#FFDFC0";
+  for (const l of Object.values(lab.lights)) {
+    const base = Number(l.userData.base ?? 0);
+    if (!base) continue;
+    const kind = String(l.userData.kind ?? "room");
+    const k = K[kind] ?? 0.3;
+    l.intensity = base * k * spec.light.gain;
+    if ((l as THREE.PointLight).isPointLight || (l as THREE.SpotLight).isSpotLight) l.color.set(warm);
   }
+
+  // 灯具自发光：灯带与灯罩自己也要亮起来，否则只是几束光
+  const glow = phase === "day" ? 0.7 : phase === "night" ? 1.5 : 0.35;
+  for (const m of lab.lampMats) m.emissiveIntensity = glow;
+
   for (const s of lab.screens) {
     const m = s.material as THREE.MeshStandardMaterial;
     m.emissiveIntensity = phase === "day" ? 0.2 : phase === "night" ? 0.9 : 1.6;

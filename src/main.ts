@@ -14,30 +14,31 @@ interface ViewDef {
 }
 
 const VIEWS: ViewDef[] = [
-  { room: "all", id: "all-overview", label: "全屋透视", pos: [15.6, 10.2, 14.8], target: [6.0, 0.5, 4.7], fov: 42 },
+  { room: "all", id: "all-overview", label: "全屋透视", pos: [15.2, 9.4, 14.2], target: [6.2, 0.6, 4.7], fov: 38 },
   { room: "all", id: "all-top", label: "全屋俯视", pos: [6.42, 19.5, 4.70], target: [6.42, 0, 4.68], fov: 38 },
-  { room: "living", id: "living-entry", label: "从走廊看客厅", pos: [7.25, 1.55, 5.45], target: [11.2, 0.95, 8.5], fov: 48 },
-  { room: "living", id: "living-sofa", label: "从阳台看沙发", pos: [11.35, 1.5, 8.95], target: [7.8, 1.0, 6.3], fov: 48 },
-  { room: "kitchen", id: "kitchen-through", label: "透过玻璃门", pos: [4.62, 1.55, 4.92], target: [0.7, 1.05, 4.4], fov: 56 },
-  { room: "kitchen", id: "kitchen-inside", label: "厨房内", pos: [4.3, 1.6, 5.5], target: [0.8, 1.0, 3.9], fov: 55 },
-  { room: "bar", id: "bar-from-kitchen", label: "从出品窗看水吧", pos: [2.5, 1.55, 8.25], target: [2.2, 1.05, 5.9], fov: 58 },
-  { room: "bar", id: "bar-from-living", label: "从走廊看水吧", pos: [4.4, 1.55, 6.6], target: [0.6, 1.05, 8.0], fov: 58 },
-  { room: "master", id: "master-door", label: "从门口", pos: [7.2, 1.55, 4.15], target: [10.6, 0.95, 1.3], fov: 48 },
-  { room: "master", id: "master-bed", label: "从床边看工位", pos: [11.2, 1.5, 1.35], target: [7.7, 1.0, 3.85], fov: 48 },
-  { room: "guest", id: "guest-door", label: "从门口", pos: [4.55, 1.55, 3.15], target: [1.3, 0.95, 1.05], fov: 48 },
-  { room: "guest", id: "guest-screen", label: "从工位看沙发床", pos: [0.62, 1.55, 2.95], target: [2.8, 0.85, 0.9], fov: 50 },
-  { room: "bath", id: "bath-door", label: "从门口", pos: [5.85, 1.55, 1.9], target: [6.35, 1.0, 0.55], fov: 62 },
-  { room: "hall", id: "hall-entry", label: "入户视角", pos: [5.55, 1.58, 8.1], target: [4.5, 1.0, 4.9], fov: 50 },
-  { room: "balcony", id: "balcony-entry", label: "阳台", pos: [12.32, 1.55, 8.15], target: [12.3, 1.0, 4.9], fov: 50 },
+  { room: "living", id: "living-entry", label: "从走廊看客厅", pos: [7.15, 1.62, 5.62], target: [11.0, 0.92, 8.15], fov: 55 },
+  { room: "living", id: "living-sofa", label: "从西南角看沙发", pos: [7.3, 1.6, 9.0], target: [10.5, 0.95, 5.85], fov: 60 },
+  { room: "kitchen", id: "kitchen-through", label: "透过玻璃门", pos: [5.05, 1.62, 4.95], target: [1.1, 1.05, 4.75], fov: 62 },
+  { room: "kitchen", id: "kitchen-inside", label: "厨房内", pos: [3.62, 1.62, 5.42], target: [0.85, 0.98, 3.95], fov: 60 },
+  { room: "bar", id: "bar-from-kitchen", label: "从出品窗看水吧", pos: [2.5, 1.58, 6.95], target: [2.1, 1.0, 5.86], fov: 60 },
+  { room: "bar", id: "bar-from-living", label: "从走廊看水吧", pos: [4.55, 1.58, 7.45], target: [1.5, 1.02, 7.95], fov: 62 },
+  { room: "master", id: "master-door", label: "从门口", pos: [7.18, 1.62, 3.34], target: [10.5, 0.95, 1.0], fov: 58 },
+  { room: "master", id: "master-bed", label: "从工位看床", pos: [11.35, 1.62, 3.95], target: [8.3, 0.9, 0.85], fov: 58 },
+  { room: "guest", id: "guest-door", label: "从门口", pos: [4.32, 1.62, 3.18], target: [1.15, 1.0, 1.15], fov: 60 },
+  { room: "guest", id: "guest-screen", label: "从工位看沙发床", pos: [0.7, 1.6, 2.85], target: [3.0, 0.9, 0.95], fov: 55 },
+  { room: "bath", id: "bath-door", label: "从门口", pos: [5.28, 1.58, 1.5], target: [6.62, 1.05, 0.62], fov: 78 },
+  { room: "hall", id: "hall-entry", label: "入户视角", pos: [5.6, 1.6, 8.05], target: [4.6, 1.05, 4.7], fov: 55 },
+  { room: "balcony", id: "balcony-entry", label: "阳台", pos: [10.95, 1.6, 8.2], target: [12.6, 1.05, 6.1], fov: 55 },
 ];
 
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
-// 概念模型：关闭实时阴影贴图。掠过表面的墙体/柜体会产生大面积自阴影噪点，
-// 对"看材质与配色"这个目的弊大于利；改由环境光和三点光塑造体积。
-renderer.shadowMap.enabled = false;
+// R2：打开实时阴影。墙/顶/地不投射（见 build.ts 的 wallsGroup 处理），
+// 只让家具和柜体落在墙面与地面上，补回"东西浮着"的观感；PCFSoft 让边沿更软。
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 const scene = new THREE.Scene();
