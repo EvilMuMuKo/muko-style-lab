@@ -80,4 +80,12 @@ test.describe("风格实验室", () => {
 
     expect(errors).toEqual([]);
   });
+
+  test("构建后的 JS/CSS 引用带缓存穿透版本号", async ({ page }) => {
+    await page.goto("/");
+    const script = await page.locator('script[type="module"]').getAttribute("src");
+    const stylesheet = await page.locator('link[rel="stylesheet"]').getAttribute("href");
+    expect(script).toMatch(/\/assets\/index-[\w-]+\.js\?v=[\w.-]+$/);
+    expect(stylesheet).toMatch(/\/assets\/index-[\w-]+\.css\?v=[\w.-]+$/);
+  });
 });
