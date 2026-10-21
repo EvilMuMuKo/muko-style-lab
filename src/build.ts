@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import plan from "./plan.json";
 import { PHASES, type PhaseId, type StyleSpec } from "./styles";
-import { fabricWeave, finishTexture, patternedCanvas, plaqueTexture, stoneTop, wallTile, woodPanel } from "./textures";
+import { fabricWeave, finishTexture, patternedCanvas, plaqueTexture, stoneTop, toNormalMap, wallTile, woodPanel } from "./textures";
 
 export const H = 2.7;
 const T = 0.14;
@@ -1108,28 +1108,35 @@ export function applyStyle(lab: Lab, spec: StyleSpec, phase: PhaseId) {
 
   // 家具表面细节层：木材、布料、石材各一张灰度图（只加质感，不改色）
   if (!M.wood.map) {
-    const attach = (mat: Mat, canvasEl: HTMLCanvasElement, rep: number) => {
+    const attach = (mat: Mat, canvasEl: HTMLCanvasElement, rep: number, normalStrength = 0) => {
       const t = new THREE.CanvasTexture(canvasEl);
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       t.repeat.set(rep, rep);
       t.colorSpace = THREE.SRGBColorSpace;
       mat.map?.dispose();
       mat.map = t;
+      if (normalStrength > 0) {
+        const n = toNormalMap(canvasEl, normalStrength);
+        n.repeat.set(rep, rep);
+        mat.normalMap?.dispose();
+        mat.normalMap = n;
+        mat.normalScale = new THREE.Vector2(1, 1);
+      }
       mat.needsUpdate = true;
     };
     const woodC = woodPanel();
-    attach(M.wood, woodC, 2);
-    attach(M.wood2, woodC, 2);
-    attach(M.cabinet, woodC, 3);
-    attach(M.cabinetUpper, woodC, 3);
+    attach(M.wood, woodC, 2, 2.6);
+    attach(M.wood2, woodC, 2, 2.6);
+    attach(M.cabinet, woodC, 3, 2.2);
+    attach(M.cabinetUpper, woodC, 3, 1.6);
     const fabC = fabricWeave();
-    attach(M.soft, fabC, 6);
-    attach(M.bed, fabC, 6);
-    attach(M.pillow, fabC, 8);
-    attach(M.duvet, fabC, 8);
-    attach(M.curtain, fabC, 4);
-    attach(M.counter, stoneTop(), 4);
-    attach(M.stone, stoneTop(), 3);
+    attach(M.soft, fabC, 6, 1.4);
+    attach(M.bed, fabC, 6, 1.2);
+    attach(M.pillow, fabC, 8, 1.2);
+    attach(M.duvet, fabC, 8, 1.2);
+    attach(M.curtain, fabC, 4, 0.8);
+    attach(M.counter, stoneTop(), 4, 0.9);
+    attach(M.stone, stoneTop(), 3, 0.9);
   }
 
   M.counter.roughness = spec.finish.counter;

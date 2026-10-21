@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { applyPhase, applyStyle, buildLab, type Lab } from "./build";
 import { PHASES, ROOM_NAMES, STYLES, styleById, type PhaseId, type StyleSpec } from "./styles";
 import { createTouchControls } from "./touch";
@@ -45,9 +46,13 @@ renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xc9d6dc, 22, 46);
+// 环境光照（IBL）：金属、玻璃、石材、台面没有反射就像塑料
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
+scene.environment = envRT.texture;
+scene.environmentIntensity = 0.35;
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.05, 90);
 

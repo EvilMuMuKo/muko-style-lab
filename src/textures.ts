@@ -223,6 +223,51 @@ export function stoneTop(): HTMLCanvasElement {
   });
 }
 
+/** 把灰度细节图转成法线贴图（Sobel），材质才有真正的表面起伏 */
+export function toNormalMap(src: HTMLCanvasElement, strength = 2.2): THREE.CanvasTexture {
+  const w = src.width;
+  const h = src.height;
+  const sctx = src.getContext("2d");
+  if (!sctx) throw new Error("2d context unavailable");
+  const data = sctx.getImageData(0, 0, w, h).data;
+  const lum = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    lum[i] = (data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114) / 255;
+  }
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext("2d");
+  if (!octx) throw new Error("2d context unavailable");
+  const img = octx.createImageData(w, h);
+  const at = (x: number, y: number) => lum[((y + h) % h) * w + ((x + w) % w)];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dx =
+        at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1) -
+        (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1));
+      const dy =
+        at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1) -
+        (at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1));
+      const nx = dx * strength;
+      const ny = dy * strength;
+      const nz = 1;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      const i = (y * w + x) * 4;
+      img.data[i] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
+      img.data[i + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
+      img.data[i + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
+      img.data[i + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(out);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  t.needsUpdate = true;
+  return t;
+}
+
 export function plaqueTexture(text: string, bg: string, ink: string): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = 1024;
