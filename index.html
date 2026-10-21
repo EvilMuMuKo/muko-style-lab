@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>装修风格测试 · MuKo Style Lab</title>
+    <meta
+      name="description"
+      content="同一套 102㎡ 户型与家具，四套大胆风格的材质实验：包豪斯原教旨、中古包豪斯、侘寂包豪斯、多巴胺几何。"
+    />
+    <meta name="theme-color" content="#111214" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+
+    <header id="top">
+      <div class="brand">
+        <strong>装修风格测试</strong>
+        <span class="ver" id="ver">R1 / 1.0.0</span>
+        <span class="tag">102㎡ · 同一套平面 · 四种材质</span>
+      </div>
+      <div class="hint">拖动旋转 · 滚轮缩放 · 1–4 换风格</div>
+    </header>
+
+    <aside id="stylePanel">
+      <div class="idx" id="idx">01</div>
+      <h1 id="name">BAUHAUS</h1>
+      <div class="sub" id="sub">包豪斯 · 原教旨</div>
+      <p class="idea" id="idea"></p>
+      <div class="chips" id="chips"></div>
+      <p class="note" id="note"></p>
+      <p class="risk" id="risk"></p>
+    </aside>
+
+    <section id="controls">
+      <button id="togglePanel" class="collapse" aria-label="收起控制面板">—</button>
+      <h2>控制面板</h2>
+      <div class="row">
+        <label for="roomSel">空间</label>
+        <select id="roomSel"></select>
+      </div>
+      <div class="row">
+        <label for="viewSel">镜头</label>
+        <select id="viewSel"></select>
+      </div>
+      <div class="row wide">
+        <button id="reset">复位</button>
+        <button id="shot">导出 PNG</button>
+        <button id="walkBtn">漫游</button>
+      </div>
+      <div class="row">
+        <label>日夜</label>
+        <div class="seg" id="phases"></div>
+      </div>
+      <p class="fine">漫游：WASD 移动 · Q/E 转向 · Esc 退出</p>
+    </section>
+
+    <nav id="styles" aria-label="风格"></nav>
+
+    <div id="hud"></div>
+    <div id="flash"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
