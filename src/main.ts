@@ -48,6 +48,7 @@ const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerH
 // 按需渲染：只有相机在动、正在过渡或显式标记时才提交一帧。
 // CI 的软件光栅化下每帧代价很高，持续渲染会让点击迟迟落不下来。
 let dirty = true;
+let warmup = 3;
 const markDirty = () => {
   dirty = true;
 };
@@ -90,6 +91,21 @@ const orbit = {
   fov: 40,
   gfov: 40,
 };
+
+let camTween: { t0: number; yaw: number; pitch: number; radius: number; target: THREE.Vector3; fov: number } | null = null;
+
+/** 记录起点，按时间推进：慢机器上不会因为帧少而拖很久 */
+function beginCamTween() {
+  camTween = {
+    t0: performance.now(),
+    yaw: orbit.yaw,
+    pitch: orbit.pitch,
+    radius: orbit.radius,
+    target: orbit.target.clone(),
+    fov: orbit.fov,
+  };
+  markDirty();
+}
 
 function goalFromView(v: ViewDef) {
   const p = new THREE.Vector3(...v.pos);
@@ -187,6 +203,9 @@ canvas.addEventListener("pointermove", (e) => {
   } else {
     orbit.gyaw -= dx * 0.0038;
     orbit.gpitch = THREE.MathUtils.clamp(orbit.gpitch + dy * 0.003, -0.1, 1.25);
+    orbit.yaw = orbit.gyaw;
+    orbit.pitch = orbit.gpitch;
+    camTween = null;
   }
 });
 canvas.addEventListener("pointerup", (e) => {
@@ -199,6 +218,8 @@ canvas.addEventListener(
     e.preventDefault();
     if (walking) return;
     orbit.gradius = THREE.MathUtils.clamp(orbit.gradius * (1 + e.deltaY * 0.0011), 1.2, 22);
+    orbit.radius = orbit.gradius;
+    camTween = null;
     markDirty();
   },
   { passive: false },
@@ -260,6 +281,7 @@ function selectView(v: ViewDef) {
   currentView = v;
   if (walking) exitWalk();
   goalFromView(v);
+  beginCamTween();
   els.viewSel.value = v.id;
   const url = new URL(location.href);
   url.searchParams.set("view", v.id);
@@ -373,6 +395,7 @@ for (const s of STYLES) {
 els.reset.addEventListener("click", () => {
   if (walking) exitWalk();
   goalFromView(currentView);
+  beginCamTween();
 });
 els.walkBtn.addEventListener("click", () => (walking ? exitWalk() : enterWalk()));
 els.shot.addEventListener("click", () => {
@@ -450,12 +473,16 @@ renderer.setAnimationLoop(() => {
     camera.rotation.set(0, walk.yaw, 0, "YXZ");
     camera.rotateX(walk.pitch);
   } else {
-    const k = 1 - Math.pow(0.0016, dt);
-    orbit.yaw += (orbit.gyaw - orbit.yaw) * k;
-    orbit.pitch += (orbit.gpitch - orbit.pitch) * k;
-    orbit.radius += (orbit.gradius - orbit.radius) * k;
-    orbit.target.lerp(orbit.gtarget, k);
-    orbit.fov += (orbit.gfov - orbit.fov) * k;
+    if (camTween) {
+      const p = THREE.MathUtils.clamp((performance.now() - camTween.t0) / 620, 0, 1);
+      const e = 1 - Math.pow(1 - p, 3);
+      orbit.yaw = THREE.MathUtils.lerp(camTween.yaw, orbit.gyaw, e);
+      orbit.pitch = THREE.MathUtils.lerp(camTween.pitch, orbit.gpitch, e);
+      orbit.radius = THREE.MathUtils.lerp(camTween.radius, orbit.gradius, e);
+      orbit.target.lerpVectors(camTween.target, orbit.gtarget, e);
+      orbit.fov = THREE.MathUtils.lerp(camTween.fov, orbit.gfov, e);
+      if (p >= 1) camTween = null;
+    }
     applyOrbitCam();
   }
 
@@ -471,19 +498,15 @@ renderer.setAnimationLoop(() => {
     if (p >= 1) phaseTween = null;
   }
 
-  const settling =
-    Math.abs(orbit.gyaw - orbit.yaw) > 1e-4 ||
-    Math.abs(orbit.gpitch - orbit.pitch) > 1e-4 ||
-    Math.abs(orbit.gradius - orbit.radius) > 1e-4 ||
-    orbit.gtarget.distanceToSquared(orbit.target) > 1e-8 ||
-    Math.abs(orbit.gfov - orbit.fov) > 1e-3;
+  const settling = camTween !== null;
   const movingWalk = walking && (walk.keys.size > 0 || dragging);
-  if (dirty || settling || movingWalk || tween || phaseTween) {
+  if (dirty || settling || movingWalk || tween || phaseTween || warmup > 0) {
+    if (warmup > 0) warmup -= 1;
     sky.position.copy(camera.position);
     renderer.render(scene, camera);
     dirty = false;
     frames += 1;
-    if (!ready && frames > 2) ready = true;
+    if (!ready && frames >= 2) ready = true;
   }
 });
 
