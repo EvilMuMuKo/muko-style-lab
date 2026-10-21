@@ -1,0 +1,13 @@
+import { chromium } from "@playwright/test";
+const exe = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const b = await chromium.launch({ executablePath: exe, headless: true });
+const p = await b.newPage({ viewport: { width: 1200, height: 750 } });
+await p.goto("http://127.0.0.1:4180/muko-style-lab/", { waitUntil: "networkidle" });
+await p.waitForFunction(() => window.styleLab && window.styleLab.getState().ready);
+await p.evaluate(() => { const S=window.styleLab; S.setStyle("midcentury"); S.setPhase("day"); S.setView("kitchen-through"); });
+await p.waitForTimeout(600);
+await p.screenshot({ path: "/tmp/probe/shadow_on.png" });
+await p.evaluate(() => { const S=window.styleLab; S._renderer.shadowMap.enabled = false; S._scene.traverse(o=>{ if(o.material) o.material.needsUpdate = true; }); });
+await p.waitForTimeout(600);
+await p.screenshot({ path: "/tmp/probe/shadow_off.png" });
+await b.close();
