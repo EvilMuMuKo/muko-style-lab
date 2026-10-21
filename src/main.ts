@@ -1,8 +1,12 @@
 import * as THREE from "three";
 import { applyPhase, applyStyle, buildLab, type Lab } from "./build";
 import { PHASES, ROOM_NAMES, STYLES, styleById, type PhaseId, type StyleSpec } from "./styles";
+import { createTouchControls } from "./touch";
 
 const VERSION = "1.0.0";
+const MAX_PIXEL_RATIO = 1.5;
+const WALK_HUD_DESKTOP = "漫游中：WASD 移动 · 拖动转视角 · Esc 退出";
+const WALK_HUD_TOUCH = "漫游中：左半屏拖动行走 · 右半屏拖动转头";
 
 interface ViewDef {
   room: string;
@@ -33,7 +37,7 @@ const VIEWS: ViewDef[] = [
 
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 // R2：打开实时阴影。墙/顶/地不投射（见 build.ts 的 wallsGroup 处理），
 // 只让家具和柜体落在墙面与地面上，补回"东西浮着"的观感；PCFSoft 让边沿更软。
@@ -136,6 +140,7 @@ function applyOrbitCam() {
 
 let walking = false;
 const walk = { x: 5.6, z: 8.0, yaw: 1.2, pitch: -0.05, keys: new Set<string>() };
+const touch = createTouchControls(canvas, { isWalking: () => walking, onChange: markDirty });
 
 function enterWalk() {
   markDirty();
@@ -146,13 +151,15 @@ function enterWalk() {
   camera.getWorldDirection(dir);
   walk.yaw = Math.atan2(dir.x, dir.z) + Math.PI;
   walk.pitch = 0;
+  touch.reset();
   document.body.classList.add("walking");
-  hud.textContent = "漫游中：WASD 移动 · 拖动转视角 · Esc 退出";
+  hud.textContent = touch.enabled ? WALK_HUD_TOUCH : WALK_HUD_DESKTOP;
 }
 
 function exitWalk() {
   markDirty();
   walking = false;
+  touch.reset();
   document.body.classList.remove("walking");
   hud.textContent = "";
   applyOrbitCam();
@@ -186,12 +193,14 @@ let dragging = false;
 let lastX = 0;
 let lastY = 0;
 canvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "touch") return;
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
   canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "touch") return;
   if (!dragging) return;
   markDirty();
   const dx = e.clientX - lastX;
@@ -251,6 +260,12 @@ const els = {
 const hud = els.hud;
 
 els.ver.textContent = `R1 / ${VERSION}`;
+if (touch.enabled) {
+  const hint = document.querySelector<HTMLElement>("#top .hint");
+  if (hint) hint.textContent = "左半屏行走 · 右半屏转头";
+  const fine = document.querySelector<HTMLElement>("#controls .fine");
+  if (fine) fine.textContent = "漫游：左半屏拖动行走 · 右半屏拖动转头";
+}
 
 let current: StyleSpec = STYLES[0];
 let phase: PhaseId = "day";
@@ -424,10 +439,22 @@ window.addEventListener("keyup", (e) => {
 
 window.addEventListener("resize", () => {
   markDirty();
+  // 旋转 / 改变窗口时重算 DPR；移动端上限固定 1.5，防止高 DPR 手机像素爆炸。
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  touch.reset();
 });
+
+// 竖屏 gate 出现/消失时清空摇杆输入，避免旋转后残留轴向。
+const portraitGate = window.matchMedia("(max-width: 1024px) and (orientation: portrait)");
+const onPortraitGateChange = () => {
+  touch.reset();
+  markDirty();
+};
+portraitGate.addEventListener?.("change", onPortraitGateChange);
+window.addEventListener("orientationchange", onPortraitGateChange);
 
 // ---------- 启动 ----------
 const params = new URLSearchParams(location.search);
@@ -460,9 +487,16 @@ renderer.setAnimationLoop(() => {
     if (walk.keys.has("s") || walk.keys.has("arrowdown")) fwd -= 1;
     if (walk.keys.has("a")) side -= 1;
     if (walk.keys.has("d")) side += 1;
+    // 左摇杆：向上推 = 前进，向右推 = 右移；模拟量保留大小，不做单位化。
+    fwd += -touch.move.y;
+    side += touch.move.x;
     if (walk.keys.has("q")) walk.yaw += dt * 1.4;
     if (walk.keys.has("e")) walk.yaw -= dt * 1.4;
-    const len = Math.hypot(fwd, side) || 1;
+    // 右摇杆：横向 = yaw 速率，纵向 = pitch 速率（向下看为负 pitch）。
+    walk.yaw -= touch.look.x * 1.8 * dt;
+    walk.pitch = THREE.MathUtils.clamp(walk.pitch - touch.look.y * 1.3 * dt, -0.9, 0.7);
+    const inputLen = Math.hypot(fwd, side);
+    const len = inputLen > 1 ? inputLen : 1;
     const dirX = Math.sin(walk.yaw) * -1;
     const dirZ = Math.cos(walk.yaw) * -1;
     const nx = walk.x + ((dirX * fwd) / len + Math.cos(walk.yaw) * side) * speed * dt;
@@ -500,7 +534,8 @@ renderer.setAnimationLoop(() => {
   }
 
   const settling = camTween !== null;
-  const movingWalk = walking && (walk.keys.size > 0 || dragging);
+  const stickActive = touch.move.active || touch.look.active;
+  const movingWalk = walking && (walk.keys.size > 0 || dragging || stickActive);
   if (dirty || settling || movingWalk || tween || phaseTween || warmup > 0) {
     if (warmup > 0) warmup -= 1;
     sky.position.copy(camera.position);
@@ -539,6 +574,16 @@ renderer.setAnimationLoop(() => {
     styles: STYLES.map((s) => s.id),
     floors: lab.floors.length,
     objects: lab.furniture.children.length,
+    walking,
+    pixelRatio: renderer.getPixelRatio(),
+    touch: {
+      enabled: touch.enabled,
+      move: { ...touch.move },
+      look: { ...touch.look },
+    },
+    walkPose: { x: walk.x, z: walk.z, yaw: walk.yaw, pitch: walk.pitch },
+    orbit: { yaw: orbit.yaw, pitch: orbit.pitch, radius: orbit.radius },
+    camera: camera.position.toArray(),
   }),
   setStyle: (id: string) => setStyle(id, { flash: false }),
   setPhase: (id: PhaseId) => setPhase(id, { tween: false }),
